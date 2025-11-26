@@ -160,7 +160,7 @@ def get_dynamic_num_clients(round_idx, total_rounds, args, train_loss_history=No
     Returns:
         num_clients: Number of clients to select this round
     """
-    num_users = args.num_user
+    num_users = args.num_users
     
     if args.dynamic_frac == 0:  # Fixed fraction (original behavior)
         return max(int(args.frac * num_users), 1)
