@@ -3,6 +3,7 @@
 # Python version: 3.6
 
 import argparse
+import numpy as np
 
 
 def args_parser():
@@ -133,10 +134,81 @@ def args_parser():
     parser.add_argument('--target_accuracy',type=float,default=None,
                         help='stop at a specified test accuracy')
   
+
+    parser.add_argument('--dynamic_frac', type=int, default=0, 
+                        help='enable dynamic client fraction (0=disabled, 1=linear, 2=cosine, 3=adaptive)')
+    parser.add_argument('--frac_min', type=float, default=0.05, 
+                        help='minimum fraction of clients')
+    parser.add_argument('--frac_max', type=float, default=0.2, 
+                        help='maximum fraction of clients')
+    parser.add_argument('--warmup_rounds', type=int, default=50, 
+                        help='number of warmup rounds for dynamic client selection')
     
     args = parser.parse_args()
     return args
 
+def get_dynamic_num_clients(round_idx, total_rounds, args, train_loss_history=None):
+    """
+    Dynamically determine number of clients to select based on training progress.
+    
+    Args:
+        round_idx: Current training round
+        total_rounds: Total number of training rounds
+        args: Argument parser with configuration
+        train_loss_history: List of recent training losses (optional)
+    
+    Returns:
+        num_clients: Number of clients to select this round
+    """
+    num_users = args.num_user
+    
+    if args.dynamic_frac == 0:  # Fixed fraction (original behavior)
+        return max(int(args.frac * num_users), 1)
+    
+    elif args.dynamic_frac == 1:  # Linear increase
+        # Gradually increase from frac_min to frac_max
+        progress = round_idx / total_rounds
+        current_frac = args.frac_min + (args.frac_max - args.frac_min) * progress
+        return max(int(current_frac * num_users), 1)
+    
+    elif args.dynamic_frac == 2:  # Cosine schedule
+        # Start high, gradually decrease, then increase (U-shape)
+        progress = round_idx / total_rounds
+        cosine_val = 0.5 * (1 + np.cos(np.pi * progress))
+        current_frac = args.frac_min + (args.frac_max - args.frac_min) * cosine_val
+        return max(int(current_frac * num_users), 1)
+    
+    elif args.dynamic_frac == 3:  # Adaptive based on loss convergence
+        # More clients when loss is unstable, fewer when converging
+        if round_idx < args.warmup_rounds or train_loss_history is None:
+            current_frac = args.frac_max  # Start with more clients
+        else:
+            # Calculate loss variance over recent rounds
+            recent_losses = train_loss_history[-10:]  # Last 10 rounds
+            if len(recent_losses) > 1:
+                loss_variance = np.var(recent_losses)
+                # High variance = more clients, low variance = fewer clients
+                # Normalize variance and map to client fraction
+                normalized_var = min(loss_variance / 0.1, 1.0)  # Adjust 0.1 based on your loss scale
+                current_frac = args.frac_min + (args.frac_max - args.frac_min) * normalized_var
+            else:
+                current_frac = args.frac_max
+        return max(int(current_frac * num_users), 1)
+    
+    elif args.dynamic_frac == 4:  # Step-wise increase
+        # Increase client count at specific milestones
+        if round_idx < total_rounds * 0.25:
+            current_frac = args.frac_min
+        elif round_idx < total_rounds * 0.5:
+            current_frac = args.frac_min + (args.frac_max - args.frac_min) * 0.33
+        elif round_idx < total_rounds * 0.75:
+            current_frac = args.frac_min + (args.frac_max - args.frac_min) * 0.67
+        else:
+            current_frac = args.frac_max
+        return max(int(current_frac * num_users), 1)
+    
+    else:
+        return max(int(args.frac * num_users), 1)
 
 
 if __name__ == '__main__':

@@ -14,7 +14,7 @@ import torch
 
 
 
-from options import args_parser
+from options import args_parser,get_dynamic_num_clients
 from update import LocalUpdate,test_inference,train_federated_learning,federated_test_idx
 from models import MLP, NaiveCNN, BNCNN, ResNet,RNN
 from utils import get_dataset, average_weights, exp_details,setup_seed
@@ -167,6 +167,7 @@ if __name__ == '__main__':
             AFL_Valuation = np.array(list_loss)*np.sqrt(weights*len(train_dataset))
 
         # gpr_loss_data = None
+        train_loss_history = []
         for epoch in tqdm(range(args.epochs)):
             print('\n | Global Training Round : {} |\n'.format(epoch+1))
             epoch_global_losses = []
@@ -174,8 +175,15 @@ if __name__ == '__main__':
             global_model.train()
             if args.dataset=='cifar' or epoch in args.schedule:
                 args.lr*=args.lr_decay
-                   
-            m = max(int(args.frac * args.num_users), 1)
+
+            
+            # Num of clinets 
+            m = get_dynamic_num_clients(
+            round_idx=epoch,
+            total_rounds=args.epochs,
+            args=args,
+            train_loss_history=train_loss_history
+            )
 
             if args.gpr and epoch>args.warmup:
                 # FedCor
@@ -247,6 +255,10 @@ if __name__ == '__main__':
                     args.mu=max([args.mu-init_mu*0.1,0.0])
             loss_prev = loss_avg
             train_loss.append(loss_avg)
+            if args.dynamic_frac == 3:
+                train_loss_history.append(train_loss)
+                if len(train_loss_history) > 20:  # Keep only recent history
+                    train_loss_history.pop(0)
 
             # calculate test accuracy over all users
             list_acc, list_loss = federated_test_idx(args,global_model,
