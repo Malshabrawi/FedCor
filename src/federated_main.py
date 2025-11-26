@@ -184,6 +184,7 @@ if __name__ == '__main__':
             args=args,
             train_loss_history=train_loss_history
             )
+            print(f"\n dynamic_frac : {args.dynamic_frac}\t Epoch {epoch}\t Number of clients : {m} ")
 
             if args.gpr and epoch>args.warmup:
                 # FedCor
