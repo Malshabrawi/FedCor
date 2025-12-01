@@ -145,6 +145,9 @@ def args_parser():
                         help='number of warmup rounds for dynamic client selection')
     
     args = parser.parse_args()
+    print("---------------------- Args Parameters: ------------------------")
+    for key, value in vars(args).items():
+        print(f"{key}: {value}")    
     return args
 
 def get_dynamic_num_clients(round_idx, total_rounds, args, train_loss_history=None):
