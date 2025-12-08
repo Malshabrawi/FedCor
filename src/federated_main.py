@@ -281,12 +281,12 @@ if __name__ == '__main__':
                                             np.ones([args.num_users,1])],1)
                 pred_idx = np.delete(list(range(args.num_users)),test_idx)
                 
-                try:
-                    predict_loss,mu_p,sigma_p = gpr.Predict_Loss(test_data,test_idx,pred_idx)
-                    print("GPR Predict relative Loss:{:.4f}".format(predict_loss))
-                    predict_losses.append(predict_loss)
-                except:
-                    print("[Warning]: Singular posterior covariance encountered, skip the GPR test in this round!")
+                # try:
+                predict_loss,mu_p,sigma_p = gpr.Predict_Loss(test_data,test_idx,pred_idx)
+                print("GPR Predict relative Loss:{:.4f}".format(predict_loss))
+                predict_losses.append(predict_loss)
+                # except:
+                print("[Warning]: Singular posterior covariance encountered, skip the GPR test in this round!")
                 
                 
 
