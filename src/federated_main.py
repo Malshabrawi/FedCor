@@ -112,14 +112,18 @@ if __name__ == '__main__':
 
         # Build GP
         if args.gpr:
+            init_noise = 0.01
+            if args.dynamic_frac != 0:
+                init_noise = 0.05
+            print(f"\n\nNEW INIT NOISE {init_noise}\n\n")
             if args.kernel=='Poly':
                 gpr = Kernel_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,
-                                    dimension = args.dimension,kernel=GPR.Poly_Kernel,order = 1,Normalize = args.poly_norm)
+                                    dimension = args.dimension,kernel=GPR.Poly_Kernel,order = 1,Normalize = args.poly_norm,init_noise=init_noise)
             elif args.kernel=='SE':
                 gpr = Kernel_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,
-                                    dimension = args.dimension,kernel=GPR.SE_Kernel)
+                                    dimension = args.dimension,kernel=GPR.SE_Kernel,init_noise=init_noise)
             else:
-                gpr = GPR.Matrix_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device)
+                gpr = GPR.Matrix_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,init_noise=init_noise)
             gpr.to(gpr_device)
 
         # copy weights
@@ -282,12 +286,12 @@ if __name__ == '__main__':
                                             np.ones([args.num_users,1])],1)
                 pred_idx = np.delete(list(range(args.num_users)),test_idx)
                 
-                # try:
-                predict_loss,mu_p,sigma_p = gpr.Predict_Loss(test_data,test_idx,pred_idx)
-                print("GPR Predict relative Loss:{:.4f}".format(predict_loss))
-                predict_losses.append(predict_loss)
-                # except:
-                print("[Warning]: Singular posterior covariance encountered, skip the GPR test in this round!")
+                try:
+                    predict_loss,mu_p,sigma_p = gpr.Predict_Loss(test_data,test_idx,pred_idx)
+                    print("GPR Predict relative Loss:{:.4f}".format(predict_loss))
+                    predict_losses.append(predict_loss)
+                except:
+                    print("[Warning]: Singular posterior covariance encountered, skip the GPR test in this round!")
                 
                 
 
