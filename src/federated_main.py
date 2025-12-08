@@ -191,7 +191,8 @@ if __name__ == '__main__':
                 max_m = int(args.frac_max * args.num_users)
                 if max_m < m:
                     max_m = m
-                candidate_idxs = gpr.Select_Clients(max_m, args.epsilon_greedy, weights, args.dynamic_C, args.dynamic_TH)                    
+                candidate_idxs = gpr.Select_Clients(max_m, args.epsilon_greedy, weights, args.dynamic_C, args.dynamic_TH) 
+                idxs_users = candidate_idxs[:m]                   
                 print("GPR Chosen Clients (Truncated):", idxs_users)
 
             elif args.afl:
