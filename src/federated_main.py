@@ -272,18 +272,38 @@ if __name__ == '__main__':
             
             # test prediction accuracy of GP model
             if args.gpr and epoch>args.warmup:
+                # --- OVERSAMPLE & TRUNCATE STRATEGY START ---
+                # 1. Calculate the Stable Maximum (Oversample size)
+                # Ensure this is at least m, and based on your max fraction
+                stable_m = int(args.frac_max * args.num_users) 
+                
+                # Safety check: stable_m must be >= m
+                if stable_m < m:
+                     stable_m = m
+
+                # 2. Select clients using the STABLE size (Calculates for top 'stable_m' users)
+                candidate_idxs = gpr.Select_Clients(stable_m, args.epsilon_greedy, weights, args.dynamic_C, args.dynamic_TH)
+                
+                # 3. Truncate the list to the Dynamic size 'm'
+                # FedCor is greedy, so candidate_idxs[:m] are the top m best clients
+                idxs_users = candidate_idxs[:m]
+                
+                print("GPR Chosen Clients (Truncated):", idxs_users)
+                # --- OVERSAMPLE & TRUNCATE STRATEGY END ---
+
+            elif args.afl:                
                 test_idx = np.random.choice(range(args.num_users), m, replace=False)
                 test_data = np.concatenate([np.expand_dims(list(range(args.num_users)),1),
                                             np.expand_dims(np.array(gt_global_losses[-1])-np.array(gt_global_losses[-2]),1),
                                             np.ones([args.num_users,1])],1)
                 pred_idx = np.delete(list(range(args.num_users)),test_idx)
                 
-                try:
-                    predict_loss,mu_p,sigma_p = gpr.Predict_Loss(test_data,test_idx,pred_idx)
-                    print("GPR Predict relative Loss:{:.4f}".format(predict_loss))
-                    predict_losses.append(predict_loss)
-                except:
-                    print("[Warning]: Singular posterior covariance encountered, skip the GPR test in this round!")
+                # try:
+                predict_loss,mu_p,sigma_p = gpr.Predict_Loss(test_data,test_idx,pred_idx)
+                print("GPR Predict relative Loss:{:.4f}".format(predict_loss))
+                predict_losses.append(predict_loss)
+                # except:
+                print("[Warning]: Singular posterior covariance encountered, skip the GPR test in this round!")
                 
                 
 
