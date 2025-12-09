@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
         # Build GP
         if args.gpr:
-            init_noise = 0.01
+            init_noise = 0.05
             if args.dynamic_frac != 0:
                 init_noise = 0.05
             print(f"\n\nNEW INIT NOISE {init_noise}\n\n")
