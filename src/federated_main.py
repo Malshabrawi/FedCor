@@ -219,7 +219,7 @@ if __name__ == '__main__':
 
             else:
                 # Random selection
-                idxs_users = np.random.choice(range(args.num_users), int(args.frac_max * args.num_users), replace=False)
+                idxs_users = np.random.choice(range(args.num_users), m, replace=False)
             
                 
 
