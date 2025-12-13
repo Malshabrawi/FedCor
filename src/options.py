@@ -172,14 +172,16 @@ def get_dynamic_num_clients(round_idx, total_rounds, args, train_loss_history=No
         # Gradually increase from frac_min to frac_max
         progress = round_idx / total_rounds
         current_frac = args.frac_min + (args.frac_max - args.frac_min) * progress
-        return max(int(current_frac * num_users), 1)
+        return max(int(round(current_frac * num_users)), 1)
+
     
     elif args.dynamic_frac == 2:  # Cosine schedule
         # Start high, gradually decrease, then increase (U-shape)
         progress = round_idx / total_rounds
         cosine_val = 0.5 * (1 + np.cos(np.pi * progress))
         current_frac = args.frac_min + (args.frac_max - args.frac_min) * cosine_val
-        return max(int(current_frac * num_users), 1)
+        return max(int(round(current_frac * num_users)), 1)
+
     
     elif args.dynamic_frac == 3:  # Adaptive based on loss convergence
         # More clients when loss is unstable, fewer when converging
@@ -196,7 +198,8 @@ def get_dynamic_num_clients(round_idx, total_rounds, args, train_loss_history=No
                 current_frac = args.frac_min + (args.frac_max - args.frac_min) * normalized_var
             else:
                 current_frac = args.frac_max
-        return max(int(current_frac * num_users), 1)
+        return max(int(round(current_frac * num_users)), 1)
+
     
     elif args.dynamic_frac == 4:  # Step-wise increase
         # Increase client count at specific milestones
