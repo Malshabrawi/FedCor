@@ -14,7 +14,7 @@ import torch
 
 
 
-from options import args_parser,get_dynamic_num_clients
+from options import args_parser
 from update import LocalUpdate,test_inference,train_federated_learning,federated_test_idx
 from models import MLP, NaiveCNN, BNCNN, ResNet,RNN
 from utils import get_dataset, average_weights, exp_details,setup_seed
@@ -112,18 +112,14 @@ if __name__ == '__main__':
 
         # Build GP
         if args.gpr:
-            init_noise = 0.05
-            if args.dynamic_frac != 0:
-                init_noise = 0.05
-            print(f"\n\nNEW INIT NOISE {init_noise}\n\n")
             if args.kernel=='Poly':
                 gpr = Kernel_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,
-                                    dimension = args.dimension,kernel=GPR.Poly_Kernel,order = 1,Normalize = args.poly_norm,init_noise=init_noise)
+                                    dimension = args.dimension,kernel=GPR.Poly_Kernel,order = 1,Normalize = args.poly_norm)
             elif args.kernel=='SE':
                 gpr = Kernel_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,
-                                    dimension = args.dimension,kernel=GPR.SE_Kernel,init_noise=init_noise)
+                                    dimension = args.dimension,kernel=GPR.SE_Kernel)
             else:
-                gpr = GPR.Matrix_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,init_noise=init_noise)
+                gpr = GPR.Matrix_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device)
             gpr.to(gpr_device)
 
         # copy weights
@@ -171,7 +167,6 @@ if __name__ == '__main__':
             AFL_Valuation = np.array(list_loss)*np.sqrt(weights*len(train_dataset))
 
         # gpr_loss_data = None
-        train_loss_history = []
         for epoch in tqdm(range(args.epochs)):
             print('\n | Global Training Round : {} |\n'.format(epoch+1))
             epoch_global_losses = []
@@ -179,25 +174,15 @@ if __name__ == '__main__':
             global_model.train()
             if args.dataset=='cifar' or epoch in args.schedule:
                 args.lr*=args.lr_decay
-
-            
-            # Num of clinets 
-            m = get_dynamic_num_clients(
-            round_idx=epoch,
-            total_rounds=args.epochs,
-            args=args,
-            train_loss_history=train_loss_history
-            )
-            print(f"\n dynamic_frac : {args.dynamic_frac}\t Epoch {epoch}\t Number of clients : {m} ")
+                   
+            m = max(int(args.frac * args.num_users), 1)
 
             if args.gpr and epoch>args.warmup:
                 # FedCor
-                max_m = int(args.frac_max * args.num_users)
-                if max_m < m:
-                    max_m = m
-                candidate_idxs = gpr.Select_Clients(max_m, args.epsilon_greedy, weights, args.dynamic_C, args.dynamic_TH) 
-                idxs_users = candidate_idxs[:m]                   
-                print("GPR Chosen Clients (Truncated):", idxs_users)
+                idxs_users, round_time = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,args.dynamic_TH)
+                # Update Cumulative Time
+                gpr.cumulative_time += round_time
+                print("GPR Chosen Clients:",idxs_users)
 
             elif args.afl:
                 # AFL
@@ -219,7 +204,7 @@ if __name__ == '__main__':
 
             else:
                 # Random selection
-                idxs_users = np.random.choice(range(args.num_users), int(args.frac_max * args.num_users), replace=False)
+                idxs_users = np.random.choice(range(args.num_users), m, replace=False)
             
                 
 
@@ -264,10 +249,6 @@ if __name__ == '__main__':
                     args.mu=max([args.mu-init_mu*0.1,0.0])
             loss_prev = loss_avg
             train_loss.append(loss_avg)
-            if args.dynamic_frac == 3:
-                train_loss_history.append(train_loss)
-                if len(train_loss_history) > 20:  # Keep only recent history
-                    train_loss_history.pop(0)
 
             # calculate test accuracy over all users
             list_acc, list_loss = federated_test_idx(args,global_model,
@@ -356,6 +337,8 @@ if __name__ == '__main__':
             print("|---- Mean GP Prediction Loss: {:.4f}".format(np.mean(predict_losses)))
 
         print('\n Total Run Time: {0:0.4f}'.format(time.time()-start_time))
+        # Output the final wall-clock time
+        print(f"Total Simulated Wall-Clock Time: {gpr.cumulative_time:.2f} seconds") 
 
         # save the training records:
         with open(file_name+'_{}.pkl'.format(seed), 'wb') as f:
