@@ -37,6 +37,14 @@ class GPR(torch.nn.Module):
         self.gamma = gamma
         self.device = device
 
+        # System parameters
+        self.client_latencies = torch.rand(num_users, device=device) * 5.0 + 1.0
+        self.preferred_duration = 5
+        self.straggler_penalty = 0 # according to PyramidFL impact of penalty factors plot
+
+        # Initialize Cumulative Wall-Clock Time (to effectively measure system heterogeneity effect)
+        self.cumulative_time = 0.0 
+
     def Covariance(self,ids = None):
         raise NotImplementedError("A GPR class must have a function to calculate covariance matrix")
 
@@ -189,6 +197,7 @@ class GPR(torch.nn.Module):
         Select the clients which may lead to the maximal loss decrease
         Sequentially select the client and update the postieriori
         """
+        # TODO: add system heterogeneity consideration
         def max_loss_decrease_client(client_group,Sigma,weights = None):
             Sigma_valid = Sigma[:,client_group][client_group,:]
             Diag_valid = self.discount[client_group]/torch.sqrt(torch.diagonal(Sigma_valid)) # alpha_k/sigma_k
@@ -198,10 +207,28 @@ class GPR(torch.nn.Module):
             else:
                 # sum_i Sigma_ik*p_i
                 total_loss_decrease = torch.sum(torch.tensor(weights[client_group],device=self.device,dtype=torch.float).reshape([len(client_group),1])*Sigma_valid,dim=0)*Diag_valid
-            mld,idx = torch.max(total_loss_decrease,0)
+            
+            # 1. Retreive system parameters
+            T_k_group = self.client_latencies[client_group]
+            T_preferred = self.preferred_duration
+            U_penalty = self.straggler_penalty
+
+            # We use clamp to ensure we don't divide by zero if latency is 0
+            T_k_safe = torch.clamp(T_k_group, min=1e-6)
+
+            # 2. Calculate System Utility U_sys for the candidates
+            U_sys = (T_preferred / T_k_safe) ** (torch.where(T_k_group > T_preferred, 1.0, 0.0) * U_penalty)
+
+            # 3. Combine Utilities: Combined_Utility = U_stat * U_sys
+            combined_utility = total_loss_decrease * U_sys
+
+            # 4. Maximize the Combined Utility
+            mld,idx = torch.max(combined_utility,0)
+        
             idx = idx.item()
             selected_idx = client_group[idx]
             p_Sigma = Sigma-Sigma[:,selected_idx:selected_idx+1].mm(Sigma[selected_idx:selected_idx+1,:])/(Sigma[selected_idx,selected_idx])
+            print(f">>> Selected {selected_idx} | Latency: {self.client_latencies[selected_idx]}")
 
             return selected_idx,p_Sigma,mld.item()
 
@@ -219,8 +246,19 @@ class GPR(torch.nn.Module):
                     break
                 selected_clients.append(idx)
                 remain_clients.remove(idx)
+
+            # Calculate round time
             
-            return selected_clients
+            if selected_clients:
+                # Get the latencies for the final selected group
+                selected_latencies = self.client_latencies[selected_clients]
+                
+                # Determine the round time (Maximum latency = Straggler time)
+                round_time = torch.max(selected_latencies).item()
+            else:
+                round_time = 0.0
+
+            return selected_clients, round_time
     
 
     def Reset_Discount(self):
@@ -434,6 +472,3 @@ class Matrix_GPR(GPR):
 #     plt.show()
 
     
-
-
-
