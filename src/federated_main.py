@@ -192,12 +192,11 @@ if __name__ == '__main__':
 
             if args.gpr and epoch>args.warmup:
                 # FedCor
-                max_m = int(args.frac_max * args.num_users)
-                if max_m < m:
-                    max_m = m
-                candidate_idxs = gpr.Select_Clients(max_m, args.epsilon_greedy, weights, args.dynamic_C, args.dynamic_TH) 
-                idxs_users = candidate_idxs[:m]                   
-                print("GPR Chosen Clients (Truncated):", idxs_users)
+
+                idxs_users, round_time = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,args.dynamic_TH)
+                # Update Cumulative Time
+                gpr.cumulative_time += round_time
+                print("GPR Chosen Clients:",idxs_users)
 
             elif args.afl:
                 # AFL
@@ -264,10 +263,10 @@ if __name__ == '__main__':
                     args.mu=max([args.mu-init_mu*0.1,0.0])
             loss_prev = loss_avg
             train_loss.append(loss_avg)
-            if args.dynamic_frac == 3:
-                train_loss_history.append(train_loss)
-                if len(train_loss_history) > 20:  # Keep only recent history
-                    train_loss_history.pop(0)
+            # if args.dynamic_frac == 3:
+            #     train_loss_history.append(train_loss)
+            #     if len(train_loss_history) > 20:  
+            #         train_loss_history.pop(0)
 
             # calculate test accuracy over all users
             list_acc, list_loss = federated_test_idx(args,global_model,
