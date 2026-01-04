@@ -197,7 +197,6 @@ class GPR(torch.nn.Module):
         Select the clients which may lead to the maximal loss decrease
         Sequentially select the client and update the postieriori
         """
-        # TODO: add system heterogeneity consideration
         def max_loss_decrease_client(client_group,Sigma,weights = None):
             Sigma_valid = Sigma[:,client_group][client_group,:]
             Diag_valid = self.discount[client_group]/torch.sqrt(torch.diagonal(Sigma_valid)) # alpha_k/sigma_k
@@ -258,7 +257,7 @@ class GPR(torch.nn.Module):
             else:
                 round_time = 0.0
 
-            return selected_clients, round_time
+            return selected_clients, selected_latencies, round_time
     
 
     def Reset_Discount(self):
