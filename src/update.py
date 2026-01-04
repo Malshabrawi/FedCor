@@ -38,7 +38,7 @@ class DatasetSplit(Dataset):
 
 class LocalUpdate(object):
     # FIXME: arguments addition and their usage
-    def __init__(self, args, dataset, idxs, global_round = 0,verbose = None, latency = None, preferred_T = None):
+    def __init__(self, args, dataset, idxs, global_round = 0,verbose = None, latency = 0, preferred_T = 0):
         self.args = args
         # self.logger = logger
         self.trainloader, self.testloader = self.train_test(
@@ -89,10 +89,9 @@ class LocalUpdate(object):
             
         # FIXME: Adaptive Local Training
         # V is the confidence factor (recommended 0.7 to 0.9)
-        V = 0.8
-        idle_time = max(self.preferred_T - self.latency, 0)
-        
         if self.latency > 0:
+            V = 0.8
+            idle_time = max(self.preferred_T - self.latency, 0)
             adaptation_factor = (V * (idle_time / self.latency)) + 1
             # Calculate adaptive epochs (omega_k) [4]
             adaptive_ep = int(math.floor(adaptation_factor * self.args.local_ep))

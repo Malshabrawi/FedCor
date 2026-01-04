@@ -216,12 +216,18 @@ if __name__ == '__main__':
             for idx in idxs_users:
                 local_model = copy.deepcopy(global_model)
                 # FIXME: arguments for the localupdate
-                local_update = LocalUpdate(args=args, 
-                                           dataset=train_dataset,
-                                           idxs=user_groups[idx],
-                                           global_round = epoch,
-                                           latency=client_latencies[idx],
-                                           preferred_T=5)
+                try:
+                    local_update = LocalUpdate(args=args, 
+                                            dataset=train_dataset,
+                                            idxs=user_groups[idx],
+                                            global_round = epoch,
+                                            latency=client_latencies[idx],
+                                            preferred_T=5)
+                except:
+                    local_update = LocalUpdate(args=args, 
+                                            dataset=train_dataset,
+                                            idxs=user_groups[idx],
+                                            global_round = epoch)
                 w,test_loss,init_test_loss = local_update.update_weights(model=local_model)
                 
                 local_states[idx] = copy.deepcopy(local_model.Get_Local_State_Dict())
