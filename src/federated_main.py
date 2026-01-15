@@ -339,6 +339,8 @@ if __name__ == '__main__':
                 print(' \nAvg Training Stats after {} global rounds:'.format(epoch+1))
                 print('Training Loss : {}'.format(np.sum(np.array(list_loss)*weights)))
                 print("Test Accuracy: {:.2f}%\n".format(100*test_acc))
+                # TODO: add print statement below to include wall clock time reporting per round
+                print(f"Round Simulated Wall-Clock Time: {gpr.cumulative_time:.2f} seconds")
         
         
         print(' \n Results after {} global rounds of training:'.format(epoch+1))
