@@ -192,8 +192,7 @@ if __name__ == '__main__':
 
             if args.gpr and epoch>args.warmup:
                 # FedCor
-
-                idxs_users, round_time = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,args.dynamic_TH)
+                idxs_users, client_latencies, round_time = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,args.dynamic_TH)
                 # Update Cumulative Time
                 gpr.cumulative_time += round_time
                 print("GPR Chosen Clients:",idxs_users)
@@ -229,8 +228,19 @@ if __name__ == '__main__':
             
             for idx in idxs_users:
                 local_model = copy.deepcopy(global_model)
-                local_update = LocalUpdate(args=args, dataset=train_dataset,
-                                        idxs=user_groups[idx] ,global_round = epoch)
+                # FIXME: arguments for the localupdate
+                try:
+                    local_update = LocalUpdate(args=args, 
+                                            dataset=train_dataset,
+                                            idxs=user_groups[idx],
+                                            global_round = epoch,
+                                            latency=client_latencies[idx],
+                                            preferred_T=5)
+                except:
+                    local_update = LocalUpdate(args=args, 
+                                            dataset=train_dataset,
+                                            idxs=user_groups[idx],
+                                            global_round = epoch)
                 w,test_loss,init_test_loss = local_update.update_weights(model=local_model)
                 
                 local_states[idx] = copy.deepcopy(local_model.Get_Local_State_Dict())
@@ -346,6 +356,8 @@ if __name__ == '__main__':
                 print(' \nAvg Training Stats after {} global rounds:'.format(epoch+1))
                 print('Training Loss : {}'.format(np.sum(np.array(list_loss)*weights)))
                 print("Test Accuracy: {:.2f}%\n".format(100*test_acc))
+                # TODO: add print statement below to include wall clock time reporting per round
+                print(f"Round Simulated Wall-Clock Time: {gpr.cumulative_time:.2f} seconds")
         
         
         print(' \n Results after {} global rounds of training:'.format(epoch+1))

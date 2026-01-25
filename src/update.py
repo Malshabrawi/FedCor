@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import torch.nn.functional as F
 import copy
+import math
 
 from utils import average_weights
 
@@ -36,7 +37,8 @@ class DatasetSplit(Dataset):
 
 
 class LocalUpdate(object):
-    def __init__(self, args, dataset, idxs, global_round = 0,verbose = None):
+    # FIXME: arguments addition and their usage
+    def __init__(self, args, dataset, idxs, global_round = 0,verbose = None, latency = 0, preferred_T = 0):
         self.args = args
         # self.logger = logger
         self.trainloader, self.testloader = self.train_test(
@@ -47,6 +49,8 @@ class LocalUpdate(object):
         self.global_round = global_round
         self.mu = args.mu
         self.verbose = args.verbose if verbose is None else verbose
+        self.latency = latency
+        self.preferred_T = preferred_T
         
 
     def train_test(self, dataset, idxs):
@@ -82,9 +86,23 @@ class LocalUpdate(object):
         elif self.args.optimizer == 'adam':
             optimizer = torch.optim.Adam(np, lr=self.args.lr,
                                         weight_decay=self.args.reg)
+            
+        # FIXME: Adaptive Local Training
+        # V is the confidence factor (recommended 0.7 to 0.9)
+        if self.latency > 0:
+            V = 0.8
+            idle_time = max(self.preferred_T - self.latency, 0)
+            adaptation_factor = (V * (idle_time / self.latency)) + 1
+            # Calculate adaptive epochs (omega_k) [4]
+            adaptive_ep = int(math.floor(adaptation_factor * self.args.local_ep))
+        else:
+            adaptive_ep = self.args.local_ep
+
+        # Ensure we always perform at least the base number of epochs
+        adaptive_ep = max(self.args.local_ep, adaptive_ep)
         
 
-        for iter in range(self.args.local_ep):
+        for iter in range(adaptive_ep):
             for batch_idx, (datas, labels) in enumerate(self.trainloader):
                 
                 datas, labels = datas.to(self.device), labels.to(self.device)
@@ -99,8 +117,10 @@ class LocalUpdate(object):
                 optimizer.step()
 
             if self.verbose:
-                print('| Global Round : {} | Local Epoch : {} |\tLoss: {:.4f}\tCE_Loss: {:.4f}\tProxy_Loss: {:.4f}'.format(
-                        self.global_round, iter, total_loss.item(),celoss,PLoss if self.args.FedProx else 0.0))
+                print('| Round: {} | Client Latency: {:.2f}s | Adaptive Epochs: {}/{} | Loss: {:.4f}'.format(
+                  self.global_round, self.latency, iter + 1, adaptive_ep, total_loss.item()))
+                # print('| Global Round : {} | Local Epoch : {} |\tLoss: {:.4f}\tCE_Loss: {:.4f}\tProxy_Loss: {:.4f}'.format(
+                #         self.global_round, iter, total_loss.item(),celoss,PLoss if self.args.FedProx else 0.0))
                 # self.logger.add_scalar('weight_loss', total_loss.item())
         
         
