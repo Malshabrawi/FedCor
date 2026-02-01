@@ -38,9 +38,33 @@ class GPR(torch.nn.Module):
         self.device = device
 
         # System parameters
-        self.client_latencies = torch.rand(num_users, device=device) * 5.0 + 1.0
+        # self.client_latencies = torch.rand(num_users, device=device) * 5.0 + 1.0 (CHECK BELOW NEW SAMPLING)
         self.preferred_duration = 5
         self.straggler_penalty = 0 # according to PyramidFL impact of penalty factors plot
+
+        # Log-normal distribution for communication latency (seconds)
+        MEAN_COMM_LOG  = 2.0
+        STD_COMM_LOG   = 0.7
+
+        # Log-normal distribution for computation latency (seconds)
+        MEAN_COMP_LOG  = 1.2
+        STD_COMP_LOG   = 0.5
+
+        # Stragglers
+        STRAGGLER_PROB = 0.1
+        STRAGGLER_MULT = 6.0
+
+        # Sample latencies (NEW)
+        comm_latencies = np.random.lognormal(MEAN_COMM_LOG, STD_COMM_LOG, num_users)
+        comp_latencies = np.random.lognormal(MEAN_COMP_LOG, STD_COMP_LOG, num_users)
+
+        # Add stragglers
+        is_straggler = np.random.rand(num_users) < STRAGGLER_PROB
+        comm_latencies[is_straggler] *= STRAGGLER_MULT
+        comp_latencies[is_straggler] *= STRAGGLER_MULT
+
+        # Total latency per client
+        self.client_latencies = comm_latencies + comp_latencies
 
         # Initialize Cumulative Wall-Clock Time (to effectively measure system heterogeneity effect)
         self.cumulative_time = 0.0 
