@@ -112,18 +112,14 @@ if __name__ == '__main__':
 
         # Build GP
         if args.gpr:
-            init_noise = 0.05
-            if args.dynamic_frac != 0:
-                init_noise = 0.05
-            print(f"\n\nNEW INIT NOISE {init_noise}\n\n")
             if args.kernel=='Poly':
                 gpr = Kernel_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device, seed=seed,
-                                    dimension = args.dimension,kernel=GPR.Poly_Kernel,order = 1,Normalize = args.poly_norm,init_noise=init_noise)
+                                    dimension = args.dimension,kernel=GPR.Poly_Kernel,order = 1,Normalize = args.poly_norm)
             elif args.kernel=='SE':
                 gpr = Kernel_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed,
-                                    dimension = args.dimension,kernel=GPR.SE_Kernel,init_noise=init_noise)
+                                    dimension = args.dimension,kernel=GPR.SE_Kernel)
             else:
-                gpr = GPR.Matrix_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed,init_noise=init_noise)
+                gpr = GPR.Matrix_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed)
             gpr.to(gpr_device)
 
         # copy weights
