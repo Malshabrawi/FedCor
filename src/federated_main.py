@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
             if args.gpr and epoch>args.warmup:
                 # FedCor
-                idxs_users, client_latencies, round_time, selected_marginal_gains = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,dynamic_TH,return_marginal_gains=True)
+                idxs_users, client_latencies, round_time, selected_marginal_gains = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,dynamic_TH)
                 # Update Cumulative Time
                 gpr.cumulative_time += round_time
                 print("GPR Chosen Clients:",idxs_users)
