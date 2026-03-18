@@ -143,6 +143,15 @@ def args_parser():
                         help='maximum fraction of clients')
     parser.add_argument('--warmup_rounds', type=int, default=50, 
                         help='number of warmup rounds for dynamic client selection')
+    # Dynamic TH options
+    parser.add_argument('--dynamic_th_mode', type=str, default='moving_avg', choices=['moving_avg', 'percentile'],
+                        help='Strategy for updating dynamic_TH: moving_avg or percentile')
+    parser.add_argument('--dynamic_th_percentile', type=float, default=10.0,
+                        help='Percentile value for percentile-based dynamic_TH (0-100)')
+    parser.add_argument('--dynamic_th_alpha', type=float, default=0.2,
+                        help='Alpha for moving average dynamic_TH (fraction of mean marginal gain)')
+    parser.add_argument('--dynamic_th_window', type=int, default=10,
+                        help='Window size for moving average or percentile dynamic_TH')
     
     args = parser.parse_args()
     print("---------------------- Args Parameters: ------------------------")

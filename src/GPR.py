@@ -239,11 +239,13 @@ class GPR(torch.nn.Module):
             Sigma = self.Covariance()
             remain_clients = list(range(self.num_users))
             selected_clients = []
+            selected_marginal_gains = []
             for i in range(number):  
                 idx,Sigma,total_loss_decrease = max_loss_decrease_client(remain_clients,Sigma,weights)
                 if Dynamic and -total_loss_decrease<Dynamic_TH:
                     break
                 selected_clients.append(idx)
+                selected_marginal_gains.append(total_loss_decrease)
                 remain_clients.remove(idx)
 
             # Calculate round time
@@ -257,7 +259,7 @@ class GPR(torch.nn.Module):
             else:
                 round_time = 0.0
 
-            return selected_clients, selected_latencies, round_time
+            return selected_clients, selected_latencies, round_time, selected_marginal_gains
     
 
     def Reset_Discount(self):
@@ -470,4 +472,4 @@ class Matrix_GPR(GPR):
 #     print(sel)
 #     plt.show()
 
-    
+

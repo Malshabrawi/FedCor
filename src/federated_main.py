@@ -168,6 +168,8 @@ if __name__ == '__main__':
 
         # gpr_loss_data = None
         train_loss_history = []
+        marginal_gains_history = []  # Store marginal gains for dynamic_TH
+        dynamic_TH = args.dynamic_TH  # Initial value
         for epoch in tqdm(range(args.epochs)):
             print('\n | Global Training Round : {} |\n'.format(epoch+1))
             epoch_global_losses = []
@@ -186,12 +188,27 @@ if __name__ == '__main__':
             )
             print(f"\n dynamic_frac : {args.dynamic_frac}\t Epoch {epoch}\t Number of clients : {m} ")
 
+            # Update dynamic_TH based on selected mode
+            if len(marginal_gains_history) > 0:
+                window = args.dynamic_th_window
+                if args.dynamic_th_mode == 'moving_avg':
+                    recent_gains = np.array(marginal_gains_history[-window:])
+                    if len(recent_gains) > 0:
+                        dynamic_TH = args.dynamic_th_alpha * np.mean(recent_gains)
+                elif args.dynamic_th_mode == 'percentile':
+                    recent_gains = np.array(marginal_gains_history[-window:])
+                    if len(recent_gains) > 0:
+                        dynamic_TH = np.percentile(recent_gains, args.dynamic_th_percentile)
+
             if args.gpr and epoch>args.warmup:
                 # FedCor
-                idxs_users, client_latencies, round_time = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,args.dynamic_TH)
+                idxs_users, client_latencies, round_time, selected_marginal_gains = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,dynamic_TH,return_marginal_gains=True)
                 # Update Cumulative Time
                 gpr.cumulative_time += round_time
                 print("GPR Chosen Clients:",idxs_users)
+                # Store marginal gains for dynamic_TH update
+                if selected_marginal_gains is not None:
+                    marginal_gains_history.extend(selected_marginal_gains)
 
             elif args.afl:
                 # AFL
