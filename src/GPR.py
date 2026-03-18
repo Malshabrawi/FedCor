@@ -19,7 +19,7 @@ class GPR(torch.nn.Module):
                This noise is only to avoid singular covariance matrix.
         mu: Mean Priori, which is fixed while training. It can be evaluated by MLE with weighted data
     """
-    def __init__(self,num_users,loss_type = 'LOO',init_noise = 0.01,reusable_history_length=10,gamma=1.0,device = torch.device('cpu')):
+    def __init__(self,num_users,loss_type = 'LOO',init_noise = 0.01,reusable_history_length=10,gamma=1.0,device = torch.device('cpu'), seed=42):
         """
         Arguments:
             num_users: Number of users in a Federated Learning setting
@@ -38,9 +38,39 @@ class GPR(torch.nn.Module):
         self.device = device
 
         # System parameters
-        self.client_latencies = torch.rand(num_users, device=device) * 5.0 + 1.0
-        self.preferred_duration = 5
+        # self.client_latencies = torch.rand(num_users, device=device) * 5.0 + 1.0 (CHECK BELOW NEW SAMPLING)
+        self.preferred_duration = 20
         self.straggler_penalty = 0 # according to PyramidFL impact of penalty factors plot
+
+        # Log-normal distribution for communication latency (seconds)
+        MEAN_COMM_LOG  = 2.0
+        STD_COMM_LOG   = 0.7
+
+        # Log-normal distribution for computation latency (seconds)
+        MEAN_COMP_LOG  = 1.2
+        STD_COMP_LOG   = 0.5
+
+        # Stragglers
+        STRAGGLER_PROB = 0.1
+        STRAGGLER_MULT = 6.0
+
+
+        # Create a Generator instance with a specific seed
+        print(f"Using Seed Number: {seed}")
+        rng = np.random.default_rng(seed)
+
+        # Sample latencies (NEW)
+        comm_latencies = rng.lognormal(MEAN_COMM_LOG, STD_COMM_LOG, num_users)
+        comp_latencies = rng.lognormal(MEAN_COMP_LOG, STD_COMP_LOG, num_users)
+
+        # Add stragglers
+        is_straggler = rng.random(num_users) < STRAGGLER_PROB
+        comm_latencies[is_straggler] *= STRAGGLER_MULT
+        comp_latencies[is_straggler] *= STRAGGLER_MULT
+
+        # Total latency per client
+        self.client_latencies = comm_latencies + comp_latencies
+        self.client_latencies = torch.tensor(self.client_latencies).to(device)
 
         # Initialize Cumulative Wall-Clock Time (to effectively measure system heterogeneity effect)
         self.cumulative_time = 0.0 
@@ -346,7 +376,7 @@ class Kernel_GPR(GPR):
     """
 
     
-    def __init__(self,num_users,loss_type = 'LOO',init_noise = 0.01,reusable_history_length=10,gamma=1.0,device = torch.device('cpu'),dimension = 10,kernel = SE_Kernel,**Kernel_Arg):
+    def __init__(self,num_users,loss_type = 'LOO',init_noise = 0.01,reusable_history_length=10,gamma=1.0,device = torch.device('cpu'),seed= 42, dimension = 10,kernel = SE_Kernel,**Kernel_Arg):
         class Index_Projection(torch.nn.Module):
             """
             Module that project an index(an int between 0 and num_users-1) to a dimension-D space
@@ -361,7 +391,7 @@ class Kernel_GPR(GPR):
                 Return a column vector as the location in the dimension-D space
                 """
                 return self.PMatrix[:,i]
-        super(Kernel_GPR, self).__init__(num_users,loss_type,init_noise,reusable_history_length,gamma,device)
+        super(Kernel_GPR, self).__init__(num_users,loss_type,init_noise,reusable_history_length,gamma,device, seed=seed)
         self.Projection = Index_Projection(num_users,dimension)
         self.Kernel = kernel(device=device,**Kernel_Arg)
 
@@ -409,8 +439,8 @@ class Matrix_GPR(GPR):
         The Covariance Matrix Priori is computed as LL'.
         The total number of parameters is (num_users*num_users+num_users)//2+1
     """
-    def __init__(self,num_users,loss_type = 'LOO',init_noise = 0.01,reusable_history_length=10,gamma=1.0,device = torch.device('cpu')):
-        super(Matrix_GPR, self).__init__(num_users,loss_type,init_noise,reusable_history_length,gamma,device=device)
+    def __init__(self,num_users,loss_type = 'LOO',init_noise = 0.01,reusable_history_length=10,gamma=1.0,device = torch.device('cpu'), seed=42):
+        super(Matrix_GPR, self).__init__(num_users,loss_type,init_noise,reusable_history_length,gamma,device=device, seed=seed)
         # Lower Triangular Matrix L Elements without diagonal elements
         self.Lower = Parameter(torch.zeros((num_users*num_users-num_users)//2))
         self.index = torch.zeros((num_users*num_users-num_users)//2,dtype = torch.long)
