@@ -203,6 +203,7 @@ if __name__ == '__main__':
             if args.gpr and epoch>args.warmup:
                 # FedCor
                 idxs_users, client_latencies, round_time, selected_marginal_gains = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,dynamic_TH)
+                print(f"Actual clients selected after dynamic threshold: {len(idxs_users)}")
                 # Update Cumulative Time
                 gpr.cumulative_time += round_time
                 print("GPR Chosen Clients:",idxs_users)
@@ -392,6 +393,6 @@ if __name__ == '__main__':
             with open(file_name+'/MVN/{}/Sigma.pkl'.format(seed), 'wb') as f:
                 pickle.dump([sigma,sigma_gt],f)
 
-        
-        
-        
+
+
+
