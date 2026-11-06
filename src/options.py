@@ -6,6 +6,16 @@ import argparse
 import numpy as np
 
 
+def parse_bool(value):
+    if isinstance(value, bool):
+        return value
+    if value.lower() in ('true', '1', 'yes'):
+        return True
+    if value.lower() in ('false', '0', 'no'):
+        return False
+    raise argparse.ArgumentTypeError('Expected true or false')
+
+
 def args_parser():
     parser = argparse.ArgumentParser()
 
@@ -69,6 +79,9 @@ def args_parser():
                         help = 'annealing coefficient, i.e., beta in paper')
     parser.add_argument('--epsilon_greedy',type = float,default=0.0,
                         help='use epsilon-greedy in FedGP, set epsilon here')
+    parser.add_argument('--sysetm_aware', '--system_aware', dest='system_aware',
+                        type=parse_bool, nargs='?', const=True, default=False,
+                        help='enable system utility and adaptive local epochs (default: false)')
     parser.add_argument('--dynamic_C',action = 'store_true',
                         help = 'use dynamic GP clients selection')
     parser.add_argument('--dynamic_TH',type = float,default=0.0,

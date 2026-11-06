@@ -75,3 +75,24 @@ python3 src/federated_main.py --gpu=0 --dataset=cifar --model=cnn --kernel_sizes
 1. Refine codes and improve the efficiency and stability when training and utilizing GP.
 2. Support GP on GPU.
 3. Enable updates of the mean in GP.
+## FedDynaCor ablation switches
+
+`--system_aware` (alias `--sysetm_aware`) defaults to `false`. Include the flag or set it to
+`true` to enable both latency-based selection utility and adaptive local
+epochs. Simulated latency is still measured for timing comparisons.
+`--dynamic_C` defaults to false; include it to enable dynamic GP selection.
+Keep `--dynamic_frac=0` for these ablations so a separate client-count
+schedule does not confound the comparison.
+
+Add these options to the same dataset and training command:
+
+| Variant | Options |
+| --- | --- |
+| Both components disabled | `--gpr --system_aware=false --dynamic_frac=0` |
+| Dynamic only | `--gpr --dynamic_C --system_aware=false --dynamic_frac=0` |
+| System aware only | `--gpr --system_aware=true --dynamic_frac=0` |
+| Full FedDynaCor | `--gpr --dynamic_C --system_aware=true --dynamic_frac=0` |
+
+The existing straggler penalty remains zero. At this value the system utility
+multiplier is one even when enabled; adaptive local epochs can still differ.
+These switches do not resolve the existing latency-model or timing issues.

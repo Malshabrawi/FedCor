@@ -100,11 +100,17 @@ class GPR(torch.nn.Module):
         indices = data[:,0].long()
         values = data[:,1]
         
-        Cov = self.Covariance()
-        
-        Sigma_inv = torch.inverse(Cov[indices,:][:,indices])
-        mu = self.mu+((Cov[:,indices].mm(Sigma_inv)).mm((values-self.mu[indices]).unsqueeze(1))).squeeze()
-        Sigma = Cov-(Cov[:,indices].mm(Sigma_inv)).mm(Cov[indices,:])
+        # Use a double-precision solve to avoid an asymmetric or indefinite
+        # posterior from float32 inverse/multiplication round-off.
+        Cov = self.Covariance().double()
+        prior_mu = self.mu.double()
+        cross_cov = Cov[:, indices]
+        solved = torch.linalg.solve(Cov[indices, :][:, indices], Cov[indices, :])
+        mu = prior_mu + cross_cov.mm(torch.linalg.solve(
+            Cov[indices, :][:, indices],
+            (values.double() - prior_mu[indices]).unsqueeze(1))).squeeze(1)
+        Sigma = Cov - cross_cov.mm(solved)
+        Sigma = (Sigma + Sigma.T) / 2
         return mu.detach(),Sigma.detach()
 
 
@@ -131,7 +137,7 @@ class GPR(torch.nn.Module):
         LOO:
         Calculate the Log Leave-One-Out Predictive Probability of the given data
         data: given in the form S x [index,loss]
-        return: \sum log(p(y_i|y_{-i},mu,sigma,relation,sigma_n))
+        return: \\sum log(p(y_i|y_{-i},mu,sigma,relation,sigma_n))
         """
 
         # High efficient algorithm exploiting partitioning
@@ -222,7 +228,7 @@ class GPR(torch.nn.Module):
         predict_loss = predict_loss.detach().item()
         return predict_loss,mu_p,sigma_p
         
-    def Select_Clients(self,number=10,epsilon = 0.0,weights = None,Dynamic=False,Dynamic_TH=0.0):
+    def Select_Clients(self,number=10,epsilon = 0.0,weights = None,Dynamic=False,Dynamic_TH=0.0,SystemAware=False):
         """
         Select the clients which may lead to the maximal loss decrease
         Sequentially select the client and update the postieriori
@@ -237,19 +243,21 @@ class GPR(torch.nn.Module):
                 # sum_i Sigma_ik*p_i
                 total_loss_decrease = torch.sum(torch.tensor(weights[client_group],device=self.device,dtype=torch.float).reshape([len(client_group),1])*Sigma_valid,dim=0)*Diag_valid
             
-            # 1. Retreive system parameters
-            T_k_group = self.client_latencies[client_group]
-            T_preferred = self.preferred_duration
-            U_penalty = self.straggler_penalty
+            if SystemAware:
+                # 1. Retreive system parameters
+                T_k_group = self.client_latencies[client_group]
+                T_preferred = self.preferred_duration
+                U_penalty = self.straggler_penalty
 
-            # We use clamp to ensure we don't divide by zero if latency is 0
-            T_k_safe = torch.clamp(T_k_group, min=1e-6)
+                # We use clamp to ensure we don't divide by zero if latency is 0
+                T_k_safe = torch.clamp(T_k_group, min=1e-6)
 
-            # 2. Calculate System Utility U_sys for the candidates
-            U_sys = (T_preferred / T_k_safe) ** (torch.where(T_k_group > T_preferred, 1.0, 0.0) * U_penalty)
+                # 2. Calculate System Utility U_sys for the candidates
+                U_sys = (T_preferred / T_k_safe) ** (torch.where(T_k_group > T_preferred, 1.0, 0.0) * U_penalty)
 
-            # 3. Combine Utilities: Combined_Utility = U_stat * U_sys
-            combined_utility = total_loss_decrease * U_sys
+                combined_utility = total_loss_decrease * U_sys
+            else:
+                combined_utility = total_loss_decrease
 
             # 4. Maximize the Combined Utility
             mld,idx = torch.max(combined_utility,0)
@@ -272,7 +280,7 @@ class GPR(torch.nn.Module):
             selected_marginal_gains = []
             for i in range(number):  
                 idx,Sigma,total_loss_decrease = max_loss_decrease_client(remain_clients,Sigma,weights)
-                if Dynamic and -total_loss_decrease<Dynamic_TH:
+                if Dynamic and selected_clients and -total_loss_decrease<Dynamic_TH:
                     break
                 selected_clients.append(idx)
                 selected_marginal_gains.append(total_loss_decrease)
@@ -280,9 +288,9 @@ class GPR(torch.nn.Module):
 
             # Calculate round time
             
+            selected_latencies = self.client_latencies[selected_clients]
             if selected_clients:
                 # Get the latencies for the final selected group
-                selected_latencies = self.client_latencies[selected_clients]
                 
                 # Determine the round time (Maximum latency = Straggler time)
                 round_time = torch.max(selected_latencies).item()

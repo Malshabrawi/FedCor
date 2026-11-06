@@ -189,7 +189,7 @@ if __name__ == '__main__':
             print(f"\n dynamic_frac : {args.dynamic_frac}\t Epoch {epoch}\t Number of clients : {m} ")
 
             # Update dynamic_TH based on selected mode
-            if len(marginal_gains_history) > 0:
+            if args.dynamic_C and len(marginal_gains_history) > 0:
                 window = args.dynamic_th_window
                 if args.dynamic_th_mode == 'moving_avg':
                     recent_gains = np.array(marginal_gains_history[-window:])
@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
             if args.gpr and epoch>args.warmup:
                 # FedCor
-                idxs_users, client_latencies, round_time, selected_marginal_gains = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,dynamic_TH)
+                idxs_users, client_latencies, round_time, selected_marginal_gains = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,dynamic_TH,SystemAware=args.system_aware)
                 print(f"Actual clients selected after dynamic threshold: {len(idxs_users)}")
                 # Update Cumulative Time
                 gpr.cumulative_time += round_time
@@ -244,7 +244,7 @@ if __name__ == '__main__':
                 local_model = copy.deepcopy(global_model)
                 # FIXME: arguments for the localupdate
                 # try:
-                if epoch>args.warmup:
+                if args.gpr and args.system_aware and epoch>args.warmup:
                     local_update = LocalUpdate(args=args, 
                                             dataset=train_dataset,
                                             idxs=user_groups[idx],
@@ -314,8 +314,8 @@ if __name__ == '__main__':
                     predict_loss,mu_p,sigma_p = gpr.Predict_Loss(test_data,test_idx,pred_idx)
                     print("GPR Predict relative Loss:{:.4f}".format(predict_loss))
                     predict_losses.append(predict_loss)
-                except:
-                    print("[Warning]: Singular posterior covariance encountered, skip the GPR test in this round!")
+                except (RuntimeError, ValueError) as error:
+                    print("[Warning]: GP prediction diagnostic skipped: {}".format(error))
                 
                 
 

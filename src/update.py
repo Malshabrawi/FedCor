@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 def ce_criterion(pred, target, *args):
     ce_loss = F.cross_entropy(pred, target)
-    return ce_loss, float(ce_loss)
+    return ce_loss, ce_loss.detach().item()
 
 class DatasetSplit(Dataset):
     """An abstract Dataset class wrapped around Pytorch Dataset class.
@@ -89,7 +89,7 @@ class LocalUpdate(object):
             
         # FIXME: Adaptive Local Training
         # V is the confidence factor (recommended 0.7 to 0.9)
-        if self.latency > 0:
+        if getattr(self.args, 'system_aware', False) and self.latency > 0:
             V = 0.8
             idle_time = max(self.preferred_T - self.latency, 0)
             adaptation_factor = (V * (idle_time / self.latency)) + 1
