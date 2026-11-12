@@ -18,3 +18,17 @@ class TimingTests(unittest.TestCase):
         with patch('torch.cuda.synchronize') as sync:
             synchronize_devices(SimpleNamespace(gpu='0',gpr_gpu='1',gpr=True))
             self.assertEqual({x.args[0] for x in sync.call_args_list},{0,1})
+
+    def test_partition_hash_preserves_validation_split(self):
+        import json, tempfile
+        from types import SimpleNamespace
+        from experiment_io import RunRecorder
+        with tempfile.TemporaryDirectory() as root:
+            args=SimpleNamespace(run_root=root,dataset='fmnist',afl=False,power_d=False,gpr=True,
+                                 dynamic_C=False,system_aware=False)
+            profile=SystemProfile(1,1,1)
+            a=RunRecorder(args,1,{0:list(range(10))},profile)
+            b=RunRecorder(args,1,{0:list(reversed(range(10)))},profile)
+            self.assertNotEqual(json.loads((a.path/'config.json').read_text())['partition_sha256'],
+                                json.loads((b.path/'config.json').read_text())['partition_sha256'])
+            self.assertEqual(json.loads((b.path/'partition.json').read_text())['0'],list(reversed(range(10))))

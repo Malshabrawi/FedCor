@@ -35,7 +35,8 @@ class RunRecorder:
         label = f'{method}_dynamic{int(args.dynamic_C)}_system{int(args.system_aware)}'
         self.path = Path(args.run_root) / (f'{args.dataset}_{label}_seed{seed}_'+uuid.uuid4().hex[:12])
         self.path.mkdir(parents=True,exist_ok=False)
-        partition = {str(k):sorted(int(x) for x in v) for k,v in groups.items()}
+        # Preserve order: LocalUpdate uses the first 80% for training and the rest for validation.
+        partition = {str(k):[int(x) for x in v] for k,v in groups.items()}
         signature = hashlib.sha256(json.dumps(partition,sort_keys=True).encode()).hexdigest()
         try: commit = subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
         except (OSError, subprocess.CalledProcessError): commit='unknown'
