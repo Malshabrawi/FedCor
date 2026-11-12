@@ -274,7 +274,7 @@ if __name__ == '__main__':
                 local_model = copy.deepcopy(global_model)
                 # FIXME: arguments for the localupdate
                 # try:
-                if args.gpr and args.system_aware and epoch>=args.warmup:
+                if args.gpr and args.adaptive_local_epochs and epoch>=args.warmup:
                     local_update = LocalUpdate(args=args, 
                                             dataset=train_dataset,
                                             idxs=user_groups[idx],

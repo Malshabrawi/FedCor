@@ -84,6 +84,9 @@ def args_parser():
                         help='enable system utility and adaptive local epochs (default: false)')
     parser.add_argument('--dynamic_C',action = 'store_true',
                         help = 'use dynamic GP clients selection')
+    parser.add_argument('--adaptive_local_epochs', type=parse_bool, nargs='?', const=True, default=None,
+                        help='independent epoch ablation; default follows system_aware')
+    parser.add_argument('--max_local_epochs', type=int, default=30)
     parser.add_argument('--straggler_penalty', type=float, default=1.0,
                         help='nonnegative system utility exponent; 0 disables latency preference')
     parser.add_argument('--preferred_duration', type=float, default=20.0)
@@ -178,6 +181,10 @@ def args_parser():
                         help='Window size for moving average or percentile dynamic_TH')
     
     args = parser.parse_args()
+    if args.adaptive_local_epochs is None:
+        args.adaptive_local_epochs = args.system_aware
+    if args.max_local_epochs < args.local_ep:
+        parser.error('max_local_epochs must be at least local_ep')
     if sum([args.gpr, args.afl, args.power_d, args.oort]) > 1:
         parser.error('Choose exactly one selection method')
     if (args.system_aware or args.dynamic_C) and not args.gpr:

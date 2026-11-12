@@ -89,7 +89,7 @@ class LocalUpdate(object):
             
         # FIXME: Adaptive Local Training
         # V is the confidence factor (recommended 0.7 to 0.9)
-        if getattr(self.args, 'system_aware', False) and self.latency > 0:
+        if getattr(self.args, 'adaptive_local_epochs', False) and self.latency > 0:
             V = 0.8
             idle_time = max(self.preferred_T - self.latency, 0)
             adaptation_factor = (V * (idle_time / self.latency)) + 1
@@ -99,7 +99,7 @@ class LocalUpdate(object):
             adaptive_ep = self.args.local_ep
 
         # Ensure we always perform at least the base number of epochs
-        adaptive_ep = max(self.args.local_ep, adaptive_ep)
+        adaptive_ep = min(self.args.max_local_epochs, max(self.args.local_ep, adaptive_ep))
         
 
         self.actual_epochs = adaptive_ep

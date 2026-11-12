@@ -87,6 +87,12 @@
     "afl": [
       "--afl"
     ],
-    "random": []
+    "random": [],
+    "full_fixed_epochs": [
+      "--gpr",
+      "--dynamic_C",
+      "--system_aware=true",
+      "--adaptive_local_epochs=false"
+    ]
   }
 }
