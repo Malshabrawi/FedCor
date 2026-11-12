@@ -124,6 +124,7 @@ def args_parser():
     
 
     # utils arguments
+    parser.add_argument('--data_dir', default='./data', help='shared dataset cache')
     parser.add_argument('--dataset', type=str, default='mnist', 
                         help="name of dataset")
     parser.add_argument('--num_classes', type=int, default=10, 

@@ -175,7 +175,7 @@ if __name__ == '__main__':
             epoch_global_losses = []
             epoch_local_losses = []
             global_model.train()
-            if args.dataset=='cifar' or epoch in args.schedule:
+            if epoch in args.schedule:
                 args.lr*=args.lr_decay
 
             
