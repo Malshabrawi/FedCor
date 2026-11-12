@@ -14,3 +14,13 @@ class OortTests(unittest.TestCase):
             self.assertEqual(len(set(selected)),5)
             for i in selected:a.update(i,10+i,float(i+1),round_no)
         self.assertEqual(np.random.rand(),expected)
+    def test_small_and_full_participation(self):
+        args=SimpleNamespace(oort_exploration_factor=.9,oort_pacer_step=2,oort_round_penalty=2)
+        for count in [1,5,10]:
+            with self.subTest(count=count):
+                selector=OortSelector(args,1,[100]*10,list(range(1,11)))
+                for round_no in range(1,25):
+                    selected=selector.select(count)
+                    self.assertEqual(len(selected),count)
+                    self.assertEqual(len(set(selected)),count)
+                    for i in selected:selector.update(i,10+i,float(i+1),round_no)

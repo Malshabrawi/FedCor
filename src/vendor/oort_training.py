@@ -1,10 +1,22 @@
 # Apache-2.0; SymbioticLab/Oort, commit 05a3aa1677a10f8e621055b1626ef82e73d09759.
-# Extracted training selector only; boundary index guarded. See OORT_PROVENANCE.md.
+# Extracted training selector; boundary and probability guards. See OORT_PROVENANCE.md.
 import math, numpy
 from random import Random
 from collections import OrderedDict
 import logging
 import numpy as np2
+
+def _weighted_sample(clients, count, scores):
+    # A clipped denominator can make probabilities sum to less than one.
+    # Empty allocations must bypass NumPy's probability validation entirely.
+    if count == 0:
+        return []
+    weights = np2.asarray(scores, dtype=float)
+    scale = weights.max()
+    weights = weights / scale if scale > 0 else np2.ones_like(weights)
+    probabilities = weights / weights.sum()
+    return list(np2.random.choice(clients, count, p=probabilities, replace=False))
+
 
 class _training_selector(object):
     """Oort's training selector
@@ -214,8 +226,7 @@ class _training_selector(object):
 
         augment_factor = len(pickedClients)
 
-        totalSc = max(1e-4, float(sum([scores[key] for key in pickedClients])))
-        pickedClients = list(np2.random.choice(pickedClients, exploitLen, p=[scores[key]/totalSc for key in pickedClients], replace=False))
+        pickedClients = _weighted_sample(pickedClients, exploitLen, [scores[key] for key in pickedClients])
         self.exploitClients = pickedClients
 
         # exploration
@@ -234,10 +245,8 @@ class _training_selector(object):
             exploreLen = min(len(_unexplored), numOfSamples - len(pickedClients))
             pickedUnexploredClients = sorted(init_reward, key=init_reward.get, reverse=True)[:min(int(self.sample_window*exploreLen), len(init_reward))]
 
-            unexploredSc = float(sum([init_reward[key] for key in pickedUnexploredClients]))
-
-            pickedUnexplored = list(np2.random.choice(pickedUnexploredClients, exploreLen,
-                            p=[init_reward[key]/max(1e-4, unexploredSc) for key in pickedUnexploredClients], replace=False))
+            pickedUnexplored = _weighted_sample(pickedUnexploredClients, exploreLen,
+                                                [init_reward[key] for key in pickedUnexploredClients])
 
             self.exploreClients = pickedUnexplored
             pickedClients = pickedClients + pickedUnexplored
