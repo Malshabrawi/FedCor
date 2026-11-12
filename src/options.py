@@ -54,7 +54,7 @@ def args_parser():
                         help = 'Use FedCor')
     parser.add_argument('--gpr_gpu', default=None, 
                         help="To use cuda, set to a specific GPU ID. Default set to use CPU.")
-    parser.add_argument('--warmup',type = int, default=25,
+    parser.add_argument('--warmup',type = int, default=15,
                         help = 'length of warm up phase for GP')
     parser.add_argument('--gpr_begin',type = int,default=0,
                         help='the round begin to sample and train GP')
@@ -84,6 +84,10 @@ def args_parser():
                         help='enable system utility and adaptive local epochs (default: false)')
     parser.add_argument('--dynamic_C',action = 'store_true',
                         help = 'use dynamic GP clients selection')
+    parser.add_argument('--straggler_penalty', type=float, default=1.0,
+                        help='nonnegative system utility exponent; 0 disables latency preference')
+    parser.add_argument('--preferred_duration', type=float, default=20.0)
+    parser.add_argument('--min_clients', type=int, default=1)
     parser.add_argument('--dynamic_TH',type = float,default=0.0,
                         help='dynamic selection threshold')
     parser.add_argument('--mvnt',action='store_true',help='Perform Multivariate Normality Test')
@@ -168,6 +172,12 @@ def args_parser():
                         help='Window size for moving average or percentile dynamic_TH')
     
     args = parser.parse_args()
+    if args.straggler_penalty < 0 or args.preferred_duration <= 0 or args.min_clients < 1:
+        parser.error('Require penalty >= 0, preferred_duration > 0 and min_clients >= 1')
+    if args.dynamic_th_window < 1 or args.dynamic_th_alpha < 0:
+        parser.error('Require a positive history window and nonnegative threshold scale')
+    if args.gpr and args.warmup < 1:
+        parser.error('GP selection requires at least one warm-up round')
     print("---------------------- Args Parameters: ------------------------")
     for key, value in vars(args).items():
         print(f"{key}: {value}")    

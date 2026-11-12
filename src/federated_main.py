@@ -122,6 +122,10 @@ if __name__ == '__main__':
                 gpr = GPR.Matrix_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed)
             gpr.to(gpr_device)
 
+        if args.gpr:
+            gpr.straggler_penalty = args.straggler_penalty
+            gpr.preferred_duration = args.preferred_duration
+
         # copy weights
         global_weights = global_model.state_dict()
         local_weights = []# store local weights of all users for averaging
@@ -200,16 +204,16 @@ if __name__ == '__main__':
                     if len(recent_gains) > 0:
                         dynamic_TH = np.percentile(recent_gains, args.dynamic_th_percentile)
 
-            if args.gpr and epoch>args.warmup:
+            if args.gpr and epoch>=args.warmup:
                 # FedCor
-                idxs_users, client_latencies, round_time, selected_marginal_gains = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,dynamic_TH,SystemAware=args.system_aware)
+                idxs_users, client_latencies, round_time, selected_marginal_gains = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,dynamic_TH,SystemAware=args.system_aware,MinClients=args.min_clients)
                 print(f"Actual clients selected after dynamic threshold: {len(idxs_users)}")
                 # Update Cumulative Time
                 gpr.cumulative_time += round_time
                 print("GPR Chosen Clients:",idxs_users)
                 # Store marginal gains for dynamic_TH update
                 if selected_marginal_gains is not None:
-                    marginal_gains_history.extend(selected_marginal_gains)
+                    marginal_gains_history.append(float(np.mean(selected_marginal_gains)))
 
             elif args.afl:
                 # AFL
@@ -244,7 +248,7 @@ if __name__ == '__main__':
                 local_model = copy.deepcopy(global_model)
                 # FIXME: arguments for the localupdate
                 # try:
-                if args.gpr and args.system_aware and epoch>args.warmup:
+                if args.gpr and args.system_aware and epoch>=args.warmup:
                     local_update = LocalUpdate(args=args, 
                                             dataset=train_dataset,
                                             idxs=user_groups[idx],
@@ -303,7 +307,7 @@ if __name__ == '__main__':
             
             
             # test prediction accuracy of GP model
-            if args.gpr and epoch>args.warmup:
+            if args.gpr and epoch>=args.warmup:
                 test_idx = np.random.choice(range(args.num_users), m, replace=False)
                 test_data = np.concatenate([np.expand_dims(list(range(args.num_users)),1),
                                             np.expand_dims(np.array(gt_global_losses[-1])-np.array(gt_global_losses[-2]),1),
@@ -324,16 +328,16 @@ if __name__ == '__main__':
             # train GPR
             if args.gpr:
                 if epoch>=args.gpr_begin:
-                    if epoch<=args.warmup:# warm-up
+                    if epoch<args.warmup:# warm-up
                         gpr.Update_Training_Data([np.arange(args.num_users),],[np.array(gt_global_losses[-1])-np.array(gt_global_losses[-2]),],epoch=epoch)
                         if not args.update_mean:
                             print("Training GPR")
                             gpr.Train(lr = 1e-2,llr = 0.01,max_epoches=150,schedule_lr=False,update_mean=args.update_mean,verbose=args.verbose)
-                        elif epoch == args.warmup:
+                        elif epoch == args.warmup-1:
                             print("Training GPR")
                             gpr.Train(lr = 1e-2,llr = 0.01,max_epoches=1000,schedule_lr=False,update_mean=args.update_mean,verbose=args.verbose)
 
-                    elif epoch>args.warmup and epoch%args.GPR_interval==0:# normal and optimization round
+                    elif epoch>=args.warmup and epoch%args.GPR_interval==0:# normal and optimization round
                         gpr.Reset_Discount()
                         print("Training with Random Selection For GPR Training:")
                         random_idxs_users = np.random.choice(range(args.num_users), m, replace=False)
@@ -347,7 +351,7 @@ if __name__ == '__main__':
                         gpr.Update_Discount(idxs_users,args.discount)
                     
                 
-                if args.mvnt and (epoch==args.warmup or (epoch%args.mvnt_interval==0 and epoch>args.warmup)):
+                if args.mvnt and (epoch==args.warmup-1 or (epoch%args.mvnt_interval==0 and epoch>=args.warmup)):
                     mvn_file = file_name+'/MVN/{}'.format(seed)
                     if not os.path.exists(mvn_file):
                         os.makedirs(mvn_file)

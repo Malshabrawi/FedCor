@@ -228,7 +228,7 @@ class GPR(torch.nn.Module):
         predict_loss = predict_loss.detach().item()
         return predict_loss,mu_p,sigma_p
         
-    def Select_Clients(self,number=10,epsilon = 0.0,weights = None,Dynamic=False,Dynamic_TH=0.0,SystemAware=False):
+    def Select_Clients(self,number=10,epsilon = 0.0,weights = None,Dynamic=False,Dynamic_TH=0.0,SystemAware=False,MinClients=1):
         """
         Select the clients which may lead to the maximal loss decrease
         Sequentially select the client and update the postieriori
@@ -280,7 +280,7 @@ class GPR(torch.nn.Module):
             selected_marginal_gains = []
             for i in range(number):  
                 idx,Sigma,total_loss_decrease = max_loss_decrease_client(remain_clients,Sigma,weights)
-                if Dynamic and selected_clients and -total_loss_decrease<Dynamic_TH:
+                if Dynamic and len(selected_clients) >= MinClients and total_loss_decrease < Dynamic_TH:
                     break
                 selected_clients.append(idx)
                 selected_marginal_gains.append(total_loss_decrease)
