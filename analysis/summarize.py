@@ -34,24 +34,69 @@ def variant(config):
     return 'dynamic' if config['dynamic_C'] else 'system' if config['system_aware'] else 'baseline'
 
 
+def validate_records(config, records, summary):
+    """Reject incomplete/corrupt output before it can become a paper result."""
+    if not records or summary.get('rounds') != len(records) or len(records) > config['epochs']:
+        raise ValueError('Incomplete or inconsistent round count')
+    elapsed=0.; participation=np.zeros(config['num_users'],dtype=int)
+    for number,row in enumerate(records,1):
+        if row.get('round') != number:
+            raise ValueError('Non-contiguous round numbering')
+        accuracy=np.asarray(row['client_validation_accuracy'],float)
+        if accuracy.shape != (config['num_users'],) or not np.isfinite(accuracy).all() or np.any((accuracy<0)|(accuracy>1)):
+            raise ValueError('Invalid client validation accuracies')
+        if not np.isfinite(row['test_accuracy']) or not 0 <= row['test_accuracy'] <= 1:
+            raise ValueError('Invalid test accuracy')
+        clients=row['clients']
+        if not clients or len(set(clients))!=len(clients) or any(type(c)!=int or not 0<=c<config['num_users'] for c in clients):
+            raise ValueError('Invalid selected clients')
+        participation[clients]+=1
+        if not np.array_equal(row['participation_counts'],participation):
+            raise ValueError('Participation counts disagree with selections')
+        for field in ['actual_epochs','local_steps']:
+            values=row[field]
+            if len(values)!=len(clients) or any(type(x)!=int or x<1 for x in values):
+                raise ValueError('Invalid local training work: '+field)
+        costs=[row[f] for f in ['simulated_client_seconds','gp_probe_client_seconds','measured_server_seconds']]
+        if not np.isfinite(costs).all() or min(costs)<0:
+            raise ValueError('Invalid timing components')
+        elapsed+=sum(costs)
+        if not np.isclose(elapsed,row['cumulative_total_seconds'],rtol=1e-9,atol=1e-8):
+            raise ValueError('Cumulative timing disagrees with components')
+    if not np.isclose(summary.get('total_seconds',float('nan')),elapsed) or summary.get('final_test_accuracy')!=records[-1]['test_accuracy']:
+        raise ValueError('Summary disagrees with recorded rounds')
+    if len(records)<config['epochs'] and (config.get('target_accuracy') is None or records[-1]['test_accuracy']<config['target_accuracy']):
+        raise ValueError('Training ended before the configured horizon without reaching its stopping target')
+
+
 def summarize(root,target,dataset,partition):
-    groups={};configurations={}
+    groups={};configurations={};method_configurations={}
     for folder in sorted(Path(root).iterdir()):
         if not (folder/'config.json').is_file():continue
         c=json.loads((folder/'config.json').read_text())
+        if c.get('iid',0):continue
         setting='dir' if c['alpha'] is not None else 'spc'+str(c['shards_per_client'])
         if c['dataset']!=dataset or setting!=partition:continue
         if not (folder/'summary.json').is_file():raise ValueError('Incomplete run: '+str(folder))
-        if json.loads((folder/'summary.json').read_text())['status']!='complete':raise ValueError('Failed run: '+str(folder))
+        summary=json.loads((folder/'summary.json').read_text())
+        if summary['status']!='complete':raise ValueError('Failed run: '+str(folder))
         records=[json.loads(x) for x in (folder/'rounds.jsonl').read_text().splitlines()]
+        validate_records(c,records,summary)
         key=(c['seed'],c['partition_sha256'],c['system_profile_sha256'])
         name=variant(c)
+        ignored={'seed','partition_sha256','system_profile_sha256','run_root','data_dir','code_commit'}
+        method_signature={k:v for k,v in c.items() if k not in ignored}
+        if name in method_configurations and method_signature!=method_configurations[name]:
+            raise ValueError('Mixed algorithm settings across seeds: '+name)
+        method_configurations[name]=method_signature
         if key in groups.setdefault(name,{}):raise ValueError('Duplicate seed/configuration: '+name)
         # Comparison parameters that must match across algorithms and seeds.
         fields=['dataset','model','mlp_layers','num_filters','kernel_sizes','epochs','num_users',
                 'local_ep','local_bs','lr','schedule','lr_decay','optimizer','reg','momentum','warmup',
-                'alpha','shards_per_client','frac','timing_definition']
-        signature={f:c[f] for f in fields}
+                'alpha','shards_per_client','frac','timing_definition','iid','unequal','num_classes',
+                'dynamic_frac','frac_min','frac_max','warmup_rounds','global_average','FedProx','mu','dynamic_mu',
+                'target_accuracy','source_sha256','torch_version','torch_threads','package_versions']
+        signature={f:c.get(f) for f in fields}
         if configurations and signature!=next(iter(configurations.values())):
             raise ValueError('Mixed experimental conditions; use a separate run root per suite')
         configurations[name]=signature
@@ -61,7 +106,7 @@ def summarize(root,target,dataset,partition):
     if 'baseline' not in groups:raise ValueError('No baseline runs found')
     output={'dataset':dataset,'partition':partition,'target_accuracy':target,
         'timing':'hybrid estimate, including warmup','fairness_population':'client-held-out validation subsets of training partition',
-        'methods':{},'paired_comparisons':{}}
+        'methods':{},'paired_comparisons':{},'configurations':method_configurations}
     for name,items in groups.items():
         hits=[x['time_to_target'] for x in items.values() if x['time_to_target'] is not None]
         output['methods'][name]={'runs':list(items.values()),'successes':len(hits),'total':len(items),
