@@ -11,3 +11,10 @@ class TimingTests(unittest.TestCase):
     def test_matched_profile(self):
         a=SystemProfile(100,1,3);b=SystemProfile(100,1,3)
         np.testing.assert_array_equal(a.communication,b.communication)
+    def test_all_used_cuda_devices_synchronized(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from experiment_io import synchronize_devices
+        with patch('torch.cuda.synchronize') as sync:
+            synchronize_devices(SimpleNamespace(gpu='0',gpr_gpu='1',gpr=True))
+            self.assertEqual({x.args[0] for x in sync.call_args_list},{0,1})

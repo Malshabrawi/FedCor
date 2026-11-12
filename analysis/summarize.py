@@ -75,6 +75,7 @@ def summarize(root,target,dataset,partition):
         pair={'all_matched_seeds':len(keys),'both_reach_target':len(complete),
             'non_reaching_seeds':[k[0] for k in keys if k not in complete],
             'scope':'time interval is conditional on BOTH methods reaching target; not an unconditional speedup estimate'}
+        pair['fairness']={metric:paired_interval([baseline[k]['fairness'][metric] for k in keys],[items[k]['fairness'][metric] for k in keys]) for metric in next(iter(items.values()))['fairness']} if len(keys)>1 else None
         pair['final_accuracy']=paired_interval([baseline[k]['final_accuracy'] for k in keys],[items[k]['final_accuracy'] for k in keys]) if len(keys)>1 else None
         pair['time_to_target']=paired_interval([baseline[k]['time_to_target'] for k in complete],[items[k]['time_to_target'] for k in complete]) if len(complete)>1 else None
         output['paired_comparisons'][name]=pair

@@ -21,7 +21,7 @@ from utils import get_dataset, average_weights, exp_details,setup_seed
 from mvnt import MVN_Test
 import GPR
 from GPR import Kernel_GPR
-from experiment_io import SystemProfile, RunRecorder
+from experiment_io import SystemProfile, RunRecorder, synchronize_devices
 from oort_adapter import OortSelector
 
 
@@ -160,8 +160,7 @@ if __name__ == '__main__':
         marginal_gains_history = []  # Store marginal gains for dynamic_TH
         dynamic_TH = args.dynamic_TH  # Initial value
         for epoch in tqdm(range(args.epochs)):
-            if args.gpu or args.gpr_gpu:
-                torch.cuda.synchronize()
+            synchronize_devices(args)
             round_started = time.perf_counter()
             client_execution_seconds = 0.0
             probe_execution_seconds = 0.0
@@ -183,6 +182,7 @@ if __name__ == '__main__':
             )
             print(f"\n dynamic_frac : {args.dynamic_frac}\t Epoch {epoch}\t Number of clients : {m} ")
 
+            selection_started = time.perf_counter()
             # Update dynamic_TH based on selected mode
             if args.dynamic_C and len(marginal_gains_history) > 0:
                 window = args.dynamic_th_window
@@ -234,6 +234,8 @@ if __name__ == '__main__':
                 
 
 
+            synchronize_devices(args)
+            selection_seconds = time.perf_counter()-selection_started
             idxs_users = [int(i) for i in idxs_users]
             chosen_clients.append(idxs_users)
             client_latencies = profile.durations(idxs_users, np.full(len(idxs_users), args.local_ep))
@@ -270,8 +272,7 @@ if __name__ == '__main__':
                 epoch_local_losses.append(test_loss)
 
 
-            if args.gpu:
-                torch.cuda.synchronize()
+            synchronize_devices(args)
             client_execution_seconds = time.perf_counter() - client_started
             if args.oort:
                 durations = profile.durations(idxs_users, actual_epochs)
@@ -315,6 +316,7 @@ if __name__ == '__main__':
 
             
             
+            diagnostic_started = time.perf_counter()
             # test prediction accuracy of GP model
             if args.gpr and epoch>=args.warmup:
                 test_idx = np.random.choice(range(args.num_users), m, replace=False)
@@ -334,6 +336,9 @@ if __name__ == '__main__':
 
             
 
+            synchronize_devices(args)
+            gp_diagnostic_seconds = time.perf_counter()-diagnostic_started
+            gp_training_started = time.perf_counter()
             # train GPR
             if args.gpr:
                 if epoch>=args.gpr_begin:
@@ -351,11 +356,10 @@ if __name__ == '__main__':
                         print("Training with Random Selection For GPR Training:")
                         random_idxs_users = np.random.choice(range(args.num_users), m, replace=False)
                         probe_started = time.perf_counter()
-                        gpr_acc,gpr_loss = train_federated_learning(args,epoch,
-                                            copy.deepcopy(global_model),random_idxs_users,train_dataset,user_groups)
-                        if args.gpu:
-                            torch.cuda.synchronize()
-                        probe_execution_seconds = time.perf_counter() - probe_started
+                        gpr_acc,gpr_loss,probe_timing = train_federated_learning(args,epoch,
+                                            copy.deepcopy(global_model),random_idxs_users,train_dataset,user_groups, return_timing=True)
+                        synchronize_devices(args)
+                        probe_execution_seconds = probe_timing['client_seconds']
                         gp_probe_client_seconds = profile.round_seconds(random_idxs_users, np.full(m, args.local_ep))
                         gpr.Update_Training_Data([np.arange(args.num_users),],[np.array(gpr_loss)-np.array(gt_global_losses[-1]),],epoch=epoch)
                         print("Training GPR")
@@ -377,11 +381,12 @@ if __name__ == '__main__':
 
                     
 
+            synchronize_devices(args)
+            gp_training_server_seconds = time.perf_counter()-gp_training_started-probe_execution_seconds
             # test inference on the global test dataset
             test_acc, test_loss = test_inference(args, global_model, test_dataset)
             test_accuracy.append(test_acc)
-            if args.gpu or args.gpr_gpu:
-                torch.cuda.synchronize()
+            synchronize_devices(args)
             measured_round_seconds = time.perf_counter() - round_started
             simulated_client_seconds = profile.round_seconds(idxs_users, actual_epochs)
             measured_server_seconds = max(0.0, measured_round_seconds-client_execution_seconds-probe_execution_seconds)
@@ -391,7 +396,9 @@ if __name__ == '__main__':
                 'client_validation_accuracy':list_acc,'client_validation_loss':list_loss,
                 'participation_counts':participation.tolist(),'threshold':float(dynamic_TH) if args.dynamic_C else None,
                 'simulated_client_seconds':simulated_client_seconds,'gp_probe_client_seconds':gp_probe_client_seconds,
-                'measured_server_seconds':measured_server_seconds,'measured_round_seconds':measured_round_seconds})
+                'measured_server_seconds':measured_server_seconds,'measured_round_seconds':measured_round_seconds,
+                'selection_seconds':selection_seconds,'gp_training_server_seconds':max(0.,gp_training_server_seconds),
+                'gp_diagnostic_seconds':gp_diagnostic_seconds})
             if args.target_accuracy is not None:
                 if test_acc>=args.target_accuracy:
                     break

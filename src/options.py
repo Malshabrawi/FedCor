@@ -188,12 +188,16 @@ def args_parser():
         parser.error('max_local_epochs must be at least local_ep')
     if sum([args.gpr, args.afl, args.power_d, args.oort]) > 1:
         parser.error('Choose exactly one selection method')
-    if (args.system_aware or args.dynamic_C) and not args.gpr:
+    if (args.system_aware or args.dynamic_C or args.adaptive_local_epochs) and not args.gpr:
         parser.error('FedDynaCor component switches require --gpr')
     if args.straggler_penalty < 0 or args.preferred_duration <= 0 or args.min_clients < 1:
         parser.error('Require penalty >= 0, preferred_duration > 0 and min_clients >= 1')
     if args.dynamic_th_window < 1 or args.dynamic_th_alpha < 0:
         parser.error('Require a positive history window and nonnegative threshold scale')
+    if not 0 < args.frac <= 1 or args.local_ep < 1 or args.local_bs < 1:
+        parser.error('Require frac in (0,1] and positive local training settings')
+    if args.min_clients > max(1, int(args.num_users * (args.frac_min if args.dynamic_frac else args.frac))):
+        parser.error('min_clients exceeds the minimum requested client count')
     if args.gp_noise <= 0 or not 0 <= args.epsilon_greedy <= 1:
         parser.error('Require gp_noise > 0 and epsilon_greedy in [0,1]')
     if args.oort_pacer_step < 1 or not 0 <= args.oort_exploration_factor <= 1 or args.oort_round_penalty < 0:

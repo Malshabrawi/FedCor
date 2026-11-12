@@ -60,3 +60,13 @@ class RunRecorder:
     def finish(self,rounds,accuracy):
         self.write('summary.json',{'status':'complete','rounds':rounds,'final_test_accuracy':accuracy,
                    'total_seconds':self.elapsed,'measured_execution_seconds':time.perf_counter()-self.wall_start})
+
+
+def synchronize_devices(args):
+    """Synchronize each accelerator actually used by the experiment."""
+    import torch
+    devices = {args.gpu}
+    if args.gpr:
+        devices.add(args.gpr_gpu)
+    for device in devices - {None}:
+        torch.cuda.synchronize(int(device))

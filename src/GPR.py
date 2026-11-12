@@ -280,7 +280,7 @@ class GPR(torch.nn.Module):
             remain_clients = list(range(self.num_users))
             selected_clients = []
             selected_marginal_gains = []
-            for i in range(min(number,self.num_users)):  
+            for i in range(min(number,self.num_users)):
                 idx,Sigma,total_loss_decrease = max_loss_decrease_client(remain_clients,Sigma,weights)
                 if Dynamic and len(selected_clients) >= MinClients and total_loss_decrease < Dynamic_TH:
                     break

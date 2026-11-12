@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader, Dataset
 import torch.nn.functional as F
 import copy
 import math
+import time
+from experiment_io import synchronize_devices
 
 from utils import average_weights
 
@@ -171,13 +173,15 @@ class LocalUpdate(object):
         return loss
 
 
-def train_federated_learning(args,epoch,global_model,idxs_users,train_dataset,user_groups,verbose = False):
+def train_federated_learning(args,epoch,global_model,idxs_users,train_dataset,user_groups,verbose = False, return_timing=False):
     device = 'cuda:'+args.gpu if args.gpu else 'cpu'
     local_weights = []
     for _ in range(args.num_users):
         local_weights.append(copy.deepcopy(global_model.state_dict()))
     local_weights = np.array(local_weights)
     global_model.train()
+    synchronize_devices(args)
+    client_started=time.perf_counter()
     for idx in idxs_users:
         local_model = copy.deepcopy(global_model)
         local_update = LocalUpdate(args=args, dataset=train_dataset,
@@ -186,6 +190,8 @@ def train_federated_learning(args,epoch,global_model,idxs_users,train_dataset,us
         w,_,_ = local_update.update_weights(model=local_model)
         local_weights[idx]=copy.deepcopy(w)
 
+    synchronize_devices(args)
+    client_seconds=time.perf_counter()-client_started
     # update global weights
     if args.global_average:
         global_weights = average_weights(local_weights)
@@ -204,6 +210,8 @@ def train_federated_learning(args,epoch,global_model,idxs_users,train_dataset,us
         acc, loss = local_update.inference(model=local_model)
         list_acc.append(acc)
         list_loss.append(loss)
+    if return_timing:
+        return sum(list_acc)/len(list_acc),list_loss,{"client_seconds":client_seconds}
     return sum(list_acc)/len(list_acc),list_loss
 
 def federated_train_all(args,global_model,train_dataset,user_groups):
