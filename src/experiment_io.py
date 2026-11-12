@@ -40,7 +40,13 @@ class RunRecorder:
         try: commit = subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
         except (OSError, subprocess.CalledProcessError): commit='unknown'
         import torch, platform
+        profile_hash = hashlib.sha256(json.dumps(profile.as_dict(),sort_keys=True).encode()).hexdigest()
+        source_hash = hashlib.sha256()
+        for source in sorted(Path(__file__).parent.rglob('*.py')):
+            source_hash.update(str(source.relative_to(Path(__file__).parent)).encode())
+            source_hash.update(source.read_bytes())
         config = dict(vars(args)); config.update(seed=seed,method=method,code_commit=commit,
+            source_sha256=source_hash.hexdigest(),system_profile_sha256=profile_hash,
             partition_sha256=signature, torch_version=torch.__version__, python_version=platform.python_version(),
             torch_threads=torch.get_num_threads(), timing_definition='hybrid_simulated_clients_plus_measured_server')
         self.write('config.json',config);self.write('partition.json',partition);self.write('system_profile.json',profile.as_dict())

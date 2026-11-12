@@ -38,33 +38,6 @@ if __name__ == '__main__':
     args = args_parser()
     gargs = copy.deepcopy(args)
     exp_details(args)
-    if not args.iid:
-        base_file = './save/objects/{}_{}_{}_{}_C[{}]_iid[{}]_{}[{}]_E[{}]_B[{}]_mu[{}]_lr[{:.5f}]'.\
-                    format(args.dataset,'FedProx[%.3f]'%args.mu if args.FedProx else 'FedAvg', args.model, args.epochs,args.frac, args.iid,
-                    'sp' if args.alpha is None else 'alpha',args.shards_per_client if args.alpha is None else args.alpha,
-                    args.local_ep, args.local_bs,args.mu,args.lr)
-    else:
-        base_file = './save/objects/{}_{}_{}_{}_C[{}]_iid[{}]_E[{}]_B[{}]_mu[{}]_lr[{:.5f}]'.\
-                    format(args.dataset,'FedProx[%.3f]'%args.mu if args.FedProx else 'FedAvg', args.model, args.epochs,args.frac, args.iid,
-                    args.local_ep, args.local_bs,args.mu,args.lr)
-    if not os.path.exists(base_file):
-        os.makedirs(base_file)
-    
-    if args.afl:
-        file_name = base_file+'/afl'
-    elif args.power_d:
-        file_name = base_file+'/powerd_d[{}]'.format(args.d)
-    elif args.gpr:
-        file_name = base_file+'/gpr[int{}_gp{}_norm{}_disc{}]'.\
-            format(args.GPR_interval,args.group_size,args.poly_norm,args.discount)
-    else:
-        file_name = base_file+'/random'
-    
-    
-
-
-    
-
     device = 'cuda:'+args.gpu if args.gpu else 'cpu'
     gpr_device = 'cuda:'+args.gpr_gpu if args.gpr_gpu else 'cpu'
     if args.gpu:
