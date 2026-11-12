@@ -416,7 +416,10 @@ if __name__ == '__main__':
         print("|---- Final Test Accuracy: {:.2f}%".format(100*test_accuracy[-1]))
         print("|---- Max Test Accuracy: {:.2f}%".format(100*max(test_accuracy)))
         if args.gpr:
-            print("|---- Mean GP Prediction Loss: {:.4f}".format(np.mean(predict_losses)))
+            if predict_losses:
+                print("|---- Mean GP Prediction Loss: {:.4f}".format(np.mean(predict_losses)))
+            else:
+                print("|---- Mean GP Prediction Loss: unavailable (no successful diagnostics)")
 
         print('\n Total Run Time: {0:0.4f}'.format(time.time()-start_time))
 

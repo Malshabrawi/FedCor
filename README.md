@@ -93,6 +93,13 @@ Add these options to the same dataset and training command:
 | System aware only | `--gpr --system_aware=true --dynamic_frac=0` |
 | Full FedDynaCor | `--gpr --dynamic_C --system_aware=true --dynamic_frac=0` |
 
-The existing straggler penalty remains zero. At this value the system utility
-multiplier is one even when enabled; adaptive local epochs can still differ.
-These switches do not resolve the existing latency-model or timing issues.
+The straggler penalty is now configurable with `--straggler_penalty` (default 1.0).
+Zero is available as an explicit ablation. Adaptive local epochs can be independently
+disabled with `--adaptive_local_epochs=false` and are capped by `--max_local_epochs`.
+
+## Reviewer revision workflow
+
+See [experiments/README.md](experiments/README.md) for matched dataset, baseline,
+sensitivity and epoch-control runs. [REVIEW_RESPONSES.md](REVIEW_RESPONSES.md) is
+the single reviewer response and change record. Full reruns and manuscript updates
+remain pending; smoke tests do not establish superiority or convergence.
