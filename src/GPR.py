@@ -271,14 +271,16 @@ class GPR(torch.nn.Module):
 
         prob = np.random.rand(1)[0]
         if prob<epsilon:
-            # use epsilon-greedy
-            return None
+            # Exploration must preserve the selector's four-value return contract.
+            selected = np.random.choice(self.num_users, min(number,self.num_users), replace=False).tolist()
+            latencies = self.client_latencies[selected]
+            return selected, latencies, float(latencies.max()) if selected else 0.0, None
         else:
             Sigma = self.Covariance()
             remain_clients = list(range(self.num_users))
             selected_clients = []
             selected_marginal_gains = []
-            for i in range(number):  
+            for i in range(min(number,self.num_users)):  
                 idx,Sigma,total_loss_decrease = max_loss_decrease_client(remain_clients,Sigma,weights)
                 if Dynamic and len(selected_clients) >= MinClients and total_loss_decrease < Dynamic_TH:
                     break

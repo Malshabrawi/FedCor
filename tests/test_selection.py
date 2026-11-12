@@ -17,3 +17,9 @@ class SelectionTests(unittest.TestCase):
     def test_system_switch(self):
         self.assertEqual(self.g.Select_Clients(1,SystemAware=False)[0],[0])
         self.assertEqual(self.g.Select_Clients(1,SystemAware=True)[0],[1])
+    def test_epsilon_exploration_contract(self):
+        selected,latencies,seconds,gains=self.g.Select_Clients(2,epsilon=1)
+        self.assertEqual(len(set(selected)),2)
+        self.assertEqual(len(latencies),2)
+        self.assertGreater(seconds,0)
+        self.assertIsNone(gains)

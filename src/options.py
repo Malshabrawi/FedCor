@@ -90,6 +90,7 @@ def args_parser():
     parser.add_argument('--straggler_penalty', type=float, default=1.0,
                         help='nonnegative system utility exponent; 0 disables latency preference')
     parser.add_argument('--preferred_duration', type=float, default=20.0)
+    parser.add_argument('--gp_noise', type=float, default=0.01, help='GP noise standard deviation for covariance regularization')
     parser.add_argument('--min_clients', type=int, default=1)
     parser.add_argument('--dynamic_TH',type = float,default=0.0,
                         help='dynamic selection threshold')
@@ -193,6 +194,10 @@ def args_parser():
         parser.error('Require penalty >= 0, preferred_duration > 0 and min_clients >= 1')
     if args.dynamic_th_window < 1 or args.dynamic_th_alpha < 0:
         parser.error('Require a positive history window and nonnegative threshold scale')
+    if args.gp_noise <= 0 or not 0 <= args.epsilon_greedy <= 1:
+        parser.error('Require gp_noise > 0 and epsilon_greedy in [0,1]')
+    if args.oort_pacer_step < 1 or not 0 <= args.oort_exploration_factor <= 1 or args.oort_round_penalty < 0:
+        parser.error('Invalid Oort settings')
     if args.gpr and args.warmup < 1:
         parser.error('GP selection requires at least one warm-up round')
     print("---------------------- Args Parameters: ------------------------")

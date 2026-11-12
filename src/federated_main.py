@@ -92,13 +92,13 @@ if __name__ == '__main__':
         # Build GP
         if args.gpr:
             if args.kernel=='Poly':
-                gpr = Kernel_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device, seed=seed,
+                gpr = Kernel_GPR(args.num_users,init_noise=args.gp_noise,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device, seed=seed,
                                     dimension = args.dimension,kernel=GPR.Poly_Kernel,order = 1,Normalize = args.poly_norm)
             elif args.kernel=='SE':
-                gpr = Kernel_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed,
+                gpr = Kernel_GPR(args.num_users,init_noise=args.gp_noise,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed,
                                     dimension = args.dimension,kernel=GPR.SE_Kernel)
             else:
-                gpr = GPR.Matrix_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed)
+                gpr = GPR.Matrix_GPR(args.num_users,init_noise=args.gp_noise,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed)
             gpr.to(gpr_device)
 
         if args.gpr:
