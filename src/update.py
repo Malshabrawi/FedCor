@@ -102,6 +102,10 @@ class LocalUpdate(object):
         adaptive_ep = max(self.args.local_ep, adaptive_ep)
         
 
+        self.actual_epochs = adaptive_ep
+        self.local_steps = 0
+        self.processed_samples = 0
+        self.loss_square_sum = 0.0
         for iter in range(adaptive_ep):
             for batch_idx, (datas, labels) in enumerate(self.trainloader):
                 
@@ -109,6 +113,10 @@ class LocalUpdate(object):
 
                 self.net.zero_grad()
                 output = self.net(datas)
+                sample_losses = F.cross_entropy(output.detach(), labels, reduction='none')
+                self.loss_square_sum += sample_losses.square().sum().item()
+                self.processed_samples += len(labels)
+                self.local_steps += 1
                 total_loss,celoss = self.criterion(output, labels)
                 if self.args.FedProx:
                     PLoss = self.Proxy_Loss()
@@ -126,6 +134,7 @@ class LocalUpdate(object):
         
         test_accuracy,test_loss = self.inference(self.net)
 
+        self.statistical_utility = math.sqrt(self.processed_samples * self.loss_square_sum) / self.actual_epochs
         return self.net.state_dict(), test_loss,init_test_loss
 
     def inference(self, model):

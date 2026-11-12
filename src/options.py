@@ -128,6 +128,7 @@ def args_parser():
     
 
     # utils arguments
+    parser.add_argument('--run_root', default='./runs', help='unique experiment output directories')
     parser.add_argument('--data_dir', default='./data', help='shared dataset cache')
     parser.add_argument('--dataset', type=str, default='mnist', 
                         help="name of dataset")

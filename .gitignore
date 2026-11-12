@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Reproducible experiment outputs and dataset cache
+/runs/
+/data/
