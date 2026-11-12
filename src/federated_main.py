@@ -302,10 +302,9 @@ if __name__ == '__main__':
                     args.mu=max([args.mu-init_mu*0.1,0.0])
             loss_prev = loss_avg
             train_loss.append(loss_avg)
-            # if args.dynamic_frac == 3:
-            #     train_loss_history.append(train_loss)
-            #     if len(train_loss_history) > 20:  
-            #         train_loss_history.pop(0)
+            if args.dynamic_frac == 3:
+                train_loss_history.append(float(loss_avg))
+                train_loss_history = train_loss_history[-10:]
 
             # calculate test accuracy over all users
             list_acc, list_loss = federated_test_idx(args,global_model,

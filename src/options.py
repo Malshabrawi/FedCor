@@ -163,7 +163,7 @@ def args_parser():
                         help='stop at a specified test accuracy')
   
 
-    parser.add_argument('--dynamic_frac', type=int, default=0, 
+    parser.add_argument('--dynamic_frac', type=int, choices=range(5), default=0, 
                         help='enable dynamic client fraction (0=disabled, 1=linear, 2=cosine, 3=adaptive)')
     parser.add_argument('--frac_min', type=float, default=0.05, 
                         help='minimum fraction of clients')
@@ -182,6 +182,25 @@ def args_parser():
                         help='Window size for moving average or percentile dynamic_TH')
     
     args = parser.parse_args()
+    if args.epochs < 1 or args.num_users < 1:
+        parser.error('epochs and num_users must be positive')
+    if not 0 < args.frac_min <= args.frac_max <= 1 or args.warmup_rounds < 0:
+        parser.error('Require 0 < frac_min <= frac_max <= 1 and warmup_rounds >= 0')
+    if not 0 <= args.dynamic_th_percentile <= 100:
+        parser.error('dynamic_th_percentile must be in [0,100]')
+    if args.GPR_interval < 1 or args.group_size < 1 or args.GPR_Epoch < 1:
+        parser.error('GP interval, history size and optimization steps must be positive')
+    if args.seed == []:
+        parser.error('Specify at least one seed after --seed')
+    requested = max(1, int(args.num_users * (args.frac_max if args.dynamic_frac else args.frac)))
+    if args.power_d and not requested <= args.d <= args.num_users:
+        parser.error('Power-d requires requested client count <= d <= num_users')
+    if args.alpha is not None and args.alpha <= 0:
+        parser.error('Dirichlet alpha must be positive')
+    if args.iid not in (0,1) or args.shards_per_client < 1:
+        parser.error('Require iid=0 or 1 and a positive shard count')
+    if args.target_accuracy is not None and not 0 < args.target_accuracy <= 1:
+        parser.error('target_accuracy must be in (0,1]')
     if args.adaptive_local_epochs is None:
         args.adaptive_local_epochs = args.system_aware
     if args.max_local_epochs < args.local_ep:
