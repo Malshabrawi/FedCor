@@ -95,7 +95,9 @@ def summarize(root,target,dataset,partition):
                 'local_ep','local_bs','lr','schedule','lr_decay','optimizer','reg','momentum','warmup',
                 'alpha','shards_per_client','frac','timing_definition','iid','unequal','num_classes',
                 'dynamic_frac','frac_min','frac_max','warmup_rounds','global_average','FedProx','mu','dynamic_mu',
-                'target_accuracy','source_sha256','torch_version','torch_threads','package_versions']
+                'target_accuracy','source_sha256','torch_version','torch_threads','package_versions',
+                'gpu','gpr_gpu','gpr_begin','group_size','GPR_interval','GPR_gamma','GPR_Epoch','update_mean',
+                'kernel','poly_norm','dimension','train_method','discount','epsilon_greedy','gp_noise']
         signature={f:c.get(f) for f in fields}
         if configurations and signature!=next(iter(configurations.values())):
             raise ValueError('Mixed experimental conditions; use a separate run root per suite')

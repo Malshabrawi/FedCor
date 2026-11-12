@@ -1,0 +1,522 @@
+{
+  "training_runs_passed": 54,
+  "rounds_checked": 277,
+  "source_hashes": [
+    "5c2337416ddbd41708aa58a3db60ebc6773b5ae8bec48aa3d4d11fde31866ce9",
+    "b93a4d21ee9080d33e738dbf3f4ceca660b2bcded8bce8b3830d6012ade0a734"
+  ],
+  "paired_analysis": [
+    {
+      "dataset": "cifar",
+      "partition": "dir",
+      "matched_seeds": 2,
+      "successes": {
+        "baseline": 1,
+        "full": 2
+      }
+    },
+    {
+      "dataset": "cifar",
+      "partition": "spc1",
+      "matched_seeds": 2,
+      "successes": {
+        "baseline": 1,
+        "full": 2
+      }
+    },
+    {
+      "dataset": "cifar",
+      "partition": "spc2",
+      "matched_seeds": 2,
+      "successes": {
+        "baseline": 1,
+        "full": 0
+      }
+    },
+    {
+      "dataset": "fmnist",
+      "partition": "dir",
+      "matched_seeds": 2,
+      "successes": {
+        "baseline": 2,
+        "full": 2
+      }
+    },
+    {
+      "dataset": "fmnist",
+      "partition": "spc1",
+      "matched_seeds": 2,
+      "successes": {
+        "baseline": 2,
+        "full": 2
+      }
+    },
+    {
+      "dataset": "fmnist",
+      "partition": "spc2",
+      "matched_seeds": 2,
+      "successes": {
+        "baseline": 2,
+        "full": 2
+      }
+    }
+  ],
+  "checks": [
+    "complete/contiguous finite records",
+    "exact optimizer-step counts",
+    "adaptive epoch caps",
+    "synchronous simulated time arithmetic",
+    "server component accounting",
+    "disabled threshold behavior",
+    "15 warm-up plus five normal rounds",
+    "identical four-ablation warm-up trajectories",
+    "two-seed pairing on both datasets and all three partitions",
+    "final Oort source runs with one selected client in Fashion-MNIST and CIFAR-10",
+    "paper CIFAR CNN completes 15 warmup and five normal rounds"
+  ],
+  "limitations": [
+    "Short CPU validation runs, not full paper experiments",
+    "Most short CIFAR pipeline checks use a small CNN; an additional final-source run uses the paper CNN for 20 rounds",
+    "CUDA synchronization is mocked in unit tests; no physical GPU training tested",
+    "Two seeds validate analysis execution, not reliable performance estimates"
+  ],
+  "runs": [
+    {
+      "path": "runs/deep_validation/adaptive_count/fmnist_spc2/fmnist_gpr_dynamic0_system0_seed3_2ea3180df86d",
+      "method": "baseline",
+      "dataset": "fmnist",
+      "seed": 3,
+      "rounds": 4,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/components/cifar_dir/cifar_gpr_dynamic0_system1_seed1_6629cd507b03",
+      "method": "system",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 2
+    },
+    {
+      "path": "runs/deep_validation/components/cifar_dir/cifar_gpr_dynamic1_system0_seed1_6a8b1d6a3ad7",
+      "method": "dynamic",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/components/cifar_spc1/cifar_gpr_dynamic0_system1_seed1_a33dc7c48e99",
+      "method": "system",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/components/cifar_spc1/cifar_gpr_dynamic1_system0_seed1_b8bf539a1e88",
+      "method": "dynamic",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/components/cifar_spc2/cifar_gpr_dynamic0_system1_seed1_3996ed7c12de",
+      "method": "system",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/components/cifar_spc2/cifar_gpr_dynamic1_system0_seed1_f09de4daeeac",
+      "method": "dynamic",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/components/fmnist_dir/fmnist_gpr_dynamic0_system1_seed1_0de8613c5887",
+      "method": "system",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 2
+    },
+    {
+      "path": "runs/deep_validation/components/fmnist_dir/fmnist_gpr_dynamic1_system0_seed1_18f5355e941a",
+      "method": "dynamic",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/components/fmnist_spc1/fmnist_gpr_dynamic0_system1_seed1_908ca1f595bf",
+      "method": "system",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/components/fmnist_spc1/fmnist_gpr_dynamic1_system0_seed1_0a73ae0f451f",
+      "method": "dynamic",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/components/fmnist_spc2/fmnist_gpr_dynamic0_system1_seed1_7a33e7bb63cc",
+      "method": "system",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/components/fmnist_spc2/fmnist_gpr_dynamic1_system0_seed1_638c64b790b8",
+      "method": "dynamic",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/epsilon/fmnist_spc2/fmnist_gpr_dynamic0_system0_seed3_e382e641fcd3",
+      "method": "baseline",
+      "dataset": "fmnist",
+      "seed": 3,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/other_methods/cifar_spc2/cifar_afl_dynamic0_system0_seed1_adac63738d79",
+      "method": "afl",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 4,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/other_methods/cifar_spc2/cifar_gpr_dynamic1_system1_seed1_a8911891fc62",
+      "method": "full_fixed_epochs",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 4,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/other_methods/cifar_spc2/cifar_oort_dynamic0_system0_seed1_6aeb1f887f33",
+      "method": "oort",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 4,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/other_methods/cifar_spc2/cifar_random_dynamic0_system0_seed1_3f0e61c603bb",
+      "method": "random",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 4,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/other_methods/fmnist_spc2/fmnist_afl_dynamic0_system0_seed1_0024fc2757d3",
+      "method": "afl",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 4,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/other_methods/fmnist_spc2/fmnist_gpr_dynamic1_system1_seed1_fb1f5d1a248a",
+      "method": "full_fixed_epochs",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 4,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/other_methods/fmnist_spc2/fmnist_oort_dynamic0_system0_seed1_7db8c94c5809",
+      "method": "oort",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 4,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/other_methods/fmnist_spc2/fmnist_random_dynamic0_system0_seed1_6f7e864a8ae0",
+      "method": "random",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 4,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_dir/cifar_gpr_dynamic0_system0_seed1_51fd7b4fb102",
+      "method": "baseline",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_dir/cifar_gpr_dynamic0_system0_seed2_9af18fe8c9d3",
+      "method": "baseline",
+      "dataset": "cifar",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_dir/cifar_gpr_dynamic1_system1_seed1_66b8492f48aa",
+      "method": "full",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 2
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_dir/cifar_gpr_dynamic1_system1_seed2_9362050c7ca2",
+      "method": "full",
+      "dataset": "cifar",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 2
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_spc1/cifar_gpr_dynamic0_system0_seed1_8f58e8c285de",
+      "method": "baseline",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_spc1/cifar_gpr_dynamic0_system0_seed2_faa81bc5ffcc",
+      "method": "baseline",
+      "dataset": "cifar",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_spc1/cifar_gpr_dynamic1_system1_seed1_45771597a35a",
+      "method": "full",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_spc1/cifar_gpr_dynamic1_system1_seed2_3ef85bb187ea",
+      "method": "full",
+      "dataset": "cifar",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_spc2/cifar_gpr_dynamic0_system0_seed1_c398bee38919",
+      "method": "baseline",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_spc2/cifar_gpr_dynamic0_system0_seed2_757664f75f82",
+      "method": "baseline",
+      "dataset": "cifar",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_spc2/cifar_gpr_dynamic1_system1_seed1_3abc5fb69c13",
+      "method": "full",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/paired/cifar_spc2/cifar_gpr_dynamic1_system1_seed2_4e842e923132",
+      "method": "full",
+      "dataset": "cifar",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 2
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_dir/fmnist_gpr_dynamic0_system0_seed1_ff4c58f55849",
+      "method": "baseline",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_dir/fmnist_gpr_dynamic0_system0_seed2_8a1e0b528e93",
+      "method": "baseline",
+      "dataset": "fmnist",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_dir/fmnist_gpr_dynamic1_system1_seed1_ac88ade7754a",
+      "method": "full",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 2
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_dir/fmnist_gpr_dynamic1_system1_seed2_a34d05aa9cd6",
+      "method": "full",
+      "dataset": "fmnist",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 2
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_spc1/fmnist_gpr_dynamic0_system0_seed1_ab9de2ead9e4",
+      "method": "baseline",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_spc1/fmnist_gpr_dynamic0_system0_seed2_52caefb54fa8",
+      "method": "baseline",
+      "dataset": "fmnist",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_spc1/fmnist_gpr_dynamic1_system1_seed1_0372a4b9d7e1",
+      "method": "full",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_spc1/fmnist_gpr_dynamic1_system1_seed2_395565633479",
+      "method": "full",
+      "dataset": "fmnist",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_spc2/fmnist_gpr_dynamic0_system0_seed1_5142d1f0a21e",
+      "method": "baseline",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_spc2/fmnist_gpr_dynamic0_system0_seed2_fcb344985176",
+      "method": "baseline",
+      "dataset": "fmnist",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_spc2/fmnist_gpr_dynamic1_system1_seed1_08ddcfbb0a10",
+      "method": "full",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 3,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/paired/fmnist_spc2/fmnist_gpr_dynamic1_system1_seed2_3dcf1b3ae333",
+      "method": "full",
+      "dataset": "fmnist",
+      "seed": 2,
+      "rounds": 3,
+      "max_actual_epochs": 2
+    },
+    {
+      "path": "runs/deep_validation/warmup/fmnist_spc2/fmnist_gpr_dynamic0_system0_seed1_6169da5f8cad",
+      "method": "baseline",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 20,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/warmup/fmnist_spc2/fmnist_gpr_dynamic0_system1_seed1_44eff6b9806f",
+      "method": "system",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 20,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/warmup/fmnist_spc2/fmnist_gpr_dynamic1_system0_seed1_9797d6f8820e",
+      "method": "dynamic",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 20,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/warmup/fmnist_spc2/fmnist_gpr_dynamic1_system1_seed1_d12020668d70",
+      "method": "full",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 20,
+      "max_actual_epochs": 3
+    },
+    {
+      "path": "runs/deep_validation/postfix/cifar_spc2/cifar_oort_dynamic0_system0_seed1_f86da8e1232e",
+      "method": "oort",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 10,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/postfix/fmnist_spc2/fmnist_oort_dynamic0_system0_seed1_79b5dd9a7acb",
+      "method": "oort",
+      "dataset": "fmnist",
+      "seed": 1,
+      "rounds": 10,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/postfix/fmnist_spc2/fmnist_oort_dynamic0_system0_seed2_b75b4b2f09b6",
+      "method": "oort",
+      "dataset": "fmnist",
+      "seed": 2,
+      "rounds": 10,
+      "max_actual_epochs": 1
+    },
+    {
+      "path": "runs/deep_validation/paper_cnn/cifar_spc2/cifar_gpr_dynamic1_system1_seed1_f75b9d526331",
+      "method": "full",
+      "dataset": "cifar",
+      "seed": 1,
+      "rounds": 20,
+      "max_actual_epochs": 3
+    }
+  ],
+  "unit_tests_passed": 27,
+  "batch_provenance": {
+    "initial_50": "After partition/client-count/analysis fixes, before final Oort probability guard",
+    "final_4": "Final source: three Oort training checks plus paper CIFAR CNN with 15 warmup and five normal rounds"
+  }
+}
