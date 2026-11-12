@@ -8,7 +8,7 @@ runner = importlib.util.module_from_spec(spec); spec.loader.exec_module(runner)
 class MatrixTests(unittest.TestCase):
     def test_matched_matrix(self):
         c = json.loads((ROOT/'experiments/core.json').read_text())
-        cmds = list(runner.commands(c, 'cifar10', c['partitions'], c['variants'], c['seeds']))
+        cmds = list(runner.commands(c, 'cifar10', c['partitions'], ['baseline','dynamic','system','full'], c['seeds']))
         self.assertEqual(len(cmds), 60)
         self.assertEqual(len({tuple(x) for x in cmds}), 60)
         self.assertTrue(all('--warmup=15' in x and '--dataset=cifar' in x for x in cmds))

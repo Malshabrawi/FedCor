@@ -96,6 +96,11 @@ def args_parser():
     parser.add_argument('--mvnt_interval',type = int, default=100, help='Interval for MVN Test')
     parser.add_argument('--mvnt_workers',type=int,default=8,help="Number of workers for MVN sampling")
 
+    parser.add_argument('--oort', action='store_true', help='upstream Oort training selector')
+    parser.add_argument('--oort_round_penalty', type=float, default=2.0)
+    parser.add_argument('--oort_exploration_factor', type=float, default=0.9)
+    parser.add_argument('--oort_pacer_step', type=int, default=20)
+
     # Power-d arguments
     parser.add_argument('--power_d',action = 'store_true',
                         help = 'use Pow-d selection')
@@ -173,6 +178,10 @@ def args_parser():
                         help='Window size for moving average or percentile dynamic_TH')
     
     args = parser.parse_args()
+    if sum([args.gpr, args.afl, args.power_d, args.oort]) > 1:
+        parser.error('Choose exactly one selection method')
+    if (args.system_aware or args.dynamic_C) and not args.gpr:
+        parser.error('FedDynaCor component switches require --gpr')
     if args.straggler_penalty < 0 or args.preferred_duration <= 0 or args.min_clients < 1:
         parser.error('Require penalty >= 0, preferred_duration > 0 and min_clients >= 1')
     if args.dynamic_th_window < 1 or args.dynamic_th_alpha < 0:

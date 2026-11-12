@@ -22,6 +22,7 @@ from mvnt import MVN_Test
 import GPR
 from GPR import Kernel_GPR
 from experiment_io import SystemProfile, RunRecorder
+from oort_adapter import OortSelector
 
 
 
@@ -133,6 +134,10 @@ if __name__ == '__main__':
             gpr.straggler_penalty = args.straggler_penalty
             gpr.preferred_duration = args.preferred_duration
 
+        if args.oort:
+            oort = OortSelector(args, seed, [len(user_groups[i]) for i in range(args.num_users)],
+                                profile.durations(np.arange(args.num_users), np.full(args.num_users,args.local_ep)))
+
         # copy weights
         global_weights = global_model.state_dict()
         local_weights = []# store local weights of all users for averaging
@@ -228,6 +233,9 @@ if __name__ == '__main__':
                 if selected_marginal_gains is not None:
                     marginal_gains_history.append(float(np.mean(selected_marginal_gains)))
 
+            elif args.oort:
+                idxs_users = oort.select(m)
+
             elif args.afl:
                 # AFL
                 delete_num = int(args.alpha1*args.num_users)
@@ -292,6 +300,10 @@ if __name__ == '__main__':
             if args.gpu:
                 torch.cuda.synchronize()
             client_execution_seconds = time.perf_counter() - client_started
+            if args.oort:
+                durations = profile.durations(idxs_users, actual_epochs)
+                for client, utility, duration in zip(idxs_users, client_utilities, durations):
+                    oort.update(client, utility, float(duration), epoch+1)
             # update global weights
             if args.global_average:
                 global_weights = average_weights(local_weights,omega=None)
