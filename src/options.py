@@ -16,6 +16,22 @@ def parse_bool(value):
     raise argparse.ArgumentTypeError('Expected true or false')
 
 
+def resolve_gpu(value, parser):
+    """Return a visible CUDA index string or None for CPU."""
+    import torch
+    value=str(value).lower()
+    if value in ('cpu','none','-1'):
+        return None
+    if value == 'auto':
+        return '0' if torch.cuda.is_available() and torch.cuda.device_count()>0 else None
+    index=value[5:] if value.startswith('cuda:') else value
+    if not index.isdigit():
+        parser.error('Device must be auto, cpu, or a CUDA index such as 0')
+    if not torch.cuda.is_available() or int(index)>=torch.cuda.device_count():
+        parser.error('Requested CUDA device is unavailable: '+value)
+    return str(int(index))
+
+
 def args_parser():
     parser = argparse.ArgumentParser()
 
@@ -53,7 +69,7 @@ def args_parser():
     parser.add_argument('--gpr',action = 'store_true',
                         help = 'Use FedCor')
     parser.add_argument('--gpr_gpu', default=None, 
-                        help="To use cuda, set to a specific GPU ID. Default set to use CPU.")
+                        help="CUDA index or cpu; by default follows --gpu.")
     parser.add_argument('--warmup',type = int, default=15,
                         help = 'length of warm up phase for GP')
     parser.add_argument('--gpr_begin',type = int,default=0,
@@ -143,8 +159,8 @@ def args_parser():
                         help="name of dataset")
     parser.add_argument('--num_classes', type=int, default=10, 
                         help="number of classes")
-    parser.add_argument('--gpu', default=None, 
-                        help="To use cuda, set to a specific GPU ID. Default set to use CPU.")
+    parser.add_argument('--gpu', default='auto',
+                        help="auto (default): CUDA if available, otherwise CPU; override with cpu or a CUDA index.")
     parser.add_argument('--optimizer', type=str, default='sgd', 
                         help="type of optimizer")
     parser.add_argument('--iid', type=int, default=1,
@@ -182,6 +198,8 @@ def args_parser():
                         help='Window size for moving average or percentile dynamic_TH')
     
     args = parser.parse_args()
+    args.gpu = resolve_gpu(args.gpu, parser)
+    args.gpr_gpu = args.gpu if args.gpr_gpu is None or args.gpr_gpu.lower()=='auto' else resolve_gpu(args.gpr_gpu, parser)
     if args.epochs < 1 or args.num_users < 1:
         parser.error('epochs and num_users must be positive')
     if not 0 < args.frac_min <= args.frac_max <= 1 or args.warmup_rounds < 0:

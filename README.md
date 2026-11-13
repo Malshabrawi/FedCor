@@ -12,6 +12,14 @@ The official implementation of the Paper: *FedCor: Correlation-Based Active Clie
 
 ## Running Experiments
 
+Device selection defaults to visible CUDA GPU 0 when available, otherwise CPU.
+GP work follows the training device by default. Override with `--gpu=cpu` to
+force CPU, `--gpu=1` to choose another visible CUDA device, or `--gpr_gpu=cpu`
+/ `--gpr_gpu=1` for separate GP placement. Explicit unavailable GPU requests
+fail with a clear error. The same defaults and overrides apply to the main and
+sensitivity experiment runners. Non-CUDA accelerator backends use CPU.
+Existing example commands with explicit GPU flags override automatic selection.
+
 Cd to the root directory of the repository and run the following command lines to start a training on Dir setting with different client selection strategies. If you want to train with 2SPC or 1SPC setting, you can replace the option ```--alpha=0.2``` with ```--shards_per_client=2``` or ```--shards_per_client=1``` respectively.
 
 For more details about each option, see ```/src/options.py```.

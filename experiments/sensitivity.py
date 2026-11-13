@@ -17,10 +17,13 @@ if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('--dataset',choices=['fmnist','cifar10'],required=True)
     p.add_argument('--partitions',nargs='+',default=['dir','spc1','spc2'])
     p.add_argument('--seeds',type=int,nargs='+',default=[1,2,3,4,5]);p.add_argument('--execute',action='store_true')
+    p.add_argument('--gpu', default=None);p.add_argument('--gpr_gpu', default=None)
     a=p.parse_args();config=json.loads((ROOT/'experiments/core.json').read_text())
     for point in settings():
         name='_'.join(f'{k}-{v}' for k,v in point.items())
         extra=[f'--{k}={v}' for k,v in point.items()]
+        for flag in ['gpu','gpr_gpu']:
+            if getattr(a,flag) is not None:extra.append('--'+flag+'='+getattr(a,flag))
         extra+=['--run_root='+str(ROOT/'runs/sensitivity'/a.dataset/name)]
         for command in commands(config,a.dataset,a.partitions,['baseline','full'],a.seeds,extra):
             print(json.dumps(command),flush=True)

@@ -23,3 +23,26 @@ class OptionsTests(unittest.TestCase):
         self.assertEqual(get_dynamic_num_clients(0,10,args,[]),20)
         self.assertEqual(get_dynamic_num_clients(2,10,args,[1.,1.]),5)
         self.assertEqual(get_dynamic_num_clients(2,10,args,[0.,2.]),20)
+
+    def test_auto_cpu_fallback(self):
+        with patch('torch.cuda.is_available',return_value=False):
+            args=self.parse('--gpr')
+            self.assertIsNone(args.gpu);self.assertIsNone(args.gpr_gpu)
+    def test_auto_cuda_and_inheritance(self):
+        with patch('torch.cuda.is_available',return_value=True),patch('torch.cuda.device_count',return_value=2):
+            args=self.parse('--gpr')
+            self.assertEqual((args.gpu,args.gpr_gpu),('0','0'))
+            args=self.parse('--gpr','--gpu=1')
+            self.assertEqual((args.gpu,args.gpr_gpu),('1','1'))
+    def test_explicit_cpu_and_separate_gp(self):
+        with patch('torch.cuda.is_available',return_value=True),patch('torch.cuda.device_count',return_value=2):
+            args=self.parse('--gpr','--gpu=cpu')
+            self.assertEqual((args.gpu,args.gpr_gpu),(None,None))
+            args=self.parse('--gpr','--gpu=1','--gpr_gpu=cpu')
+            self.assertEqual((args.gpu,args.gpr_gpu),('1',None))
+            args=self.parse('--gpr','--gpu=cpu','--gpr_gpu=cuda:1')
+            self.assertEqual((args.gpu,args.gpr_gpu),(None,'1'))
+    def test_unavailable_explicit_gpu_rejected(self):
+        with patch('torch.cuda.is_available',return_value=False),self.assertRaises(SystemExit):self.parse('--gpu=0')
+        with patch('torch.cuda.is_available',return_value=True),patch('torch.cuda.device_count',return_value=1),self.assertRaises(SystemExit):self.parse('--gpr_gpu=1')
+        with self.assertRaises(SystemExit):self.parse('--gpu=invalid')
