@@ -54,7 +54,7 @@ def args_parser():
                         help = 'Use FedCor')
     parser.add_argument('--gpr_gpu', default=None, 
                         help="To use cuda, set to a specific GPU ID. Default set to use CPU.")
-    parser.add_argument('--warmup',type = int, default=25,
+    parser.add_argument('--warmup',type = int, default=15,
                         help = 'length of warm up phase for GP')
     parser.add_argument('--gpr_begin',type = int,default=0,
                         help='the round begin to sample and train GP')
@@ -84,6 +84,14 @@ def args_parser():
                         help='enable system utility and adaptive local epochs (default: false)')
     parser.add_argument('--dynamic_C',action = 'store_true',
                         help = 'use dynamic GP clients selection')
+    parser.add_argument('--adaptive_local_epochs', type=parse_bool, nargs='?', const=True, default=None,
+                        help='independent epoch ablation; default follows system_aware')
+    parser.add_argument('--max_local_epochs', type=int, default=30)
+    parser.add_argument('--straggler_penalty', type=float, default=1.0,
+                        help='nonnegative system utility exponent; 0 disables latency preference')
+    parser.add_argument('--preferred_duration', type=float, default=20.0)
+    parser.add_argument('--gp_noise', type=float, default=0.01, help='GP noise standard deviation for covariance regularization')
+    parser.add_argument('--min_clients', type=int, default=1)
     parser.add_argument('--dynamic_TH',type = float,default=0.0,
                         help='dynamic selection threshold')
     parser.add_argument('--mvnt',action='store_true',help='Perform Multivariate Normality Test')
@@ -91,6 +99,11 @@ def args_parser():
     parser.add_argument('--mvn_dimensions',type = int, default= 100, help= 'Number of dimensions (clients) for MVN Test')
     parser.add_argument('--mvnt_interval',type = int, default=100, help='Interval for MVN Test')
     parser.add_argument('--mvnt_workers',type=int,default=8,help="Number of workers for MVN sampling")
+
+    parser.add_argument('--oort', action='store_true', help='upstream Oort training selector')
+    parser.add_argument('--oort_round_penalty', type=float, default=2.0)
+    parser.add_argument('--oort_exploration_factor', type=float, default=0.9)
+    parser.add_argument('--oort_pacer_step', type=int, default=20)
 
     # Power-d arguments
     parser.add_argument('--power_d',action = 'store_true',
@@ -124,6 +137,8 @@ def args_parser():
     
 
     # utils arguments
+    parser.add_argument('--run_root', default='./runs', help='unique experiment output directories')
+    parser.add_argument('--data_dir', default='./data', help='shared dataset cache')
     parser.add_argument('--dataset', type=str, default='mnist', 
                         help="name of dataset")
     parser.add_argument('--num_classes', type=int, default=10, 
@@ -148,7 +163,7 @@ def args_parser():
                         help='stop at a specified test accuracy')
   
 
-    parser.add_argument('--dynamic_frac', type=int, default=0, 
+    parser.add_argument('--dynamic_frac', type=int, choices=range(5), default=0, 
                         help='enable dynamic client fraction (0=disabled, 1=linear, 2=cosine, 3=adaptive)')
     parser.add_argument('--frac_min', type=float, default=0.05, 
                         help='minimum fraction of clients')
@@ -167,6 +182,47 @@ def args_parser():
                         help='Window size for moving average or percentile dynamic_TH')
     
     args = parser.parse_args()
+    if args.epochs < 1 or args.num_users < 1:
+        parser.error('epochs and num_users must be positive')
+    if not 0 < args.frac_min <= args.frac_max <= 1 or args.warmup_rounds < 0:
+        parser.error('Require 0 < frac_min <= frac_max <= 1 and warmup_rounds >= 0')
+    if not 0 <= args.dynamic_th_percentile <= 100:
+        parser.error('dynamic_th_percentile must be in [0,100]')
+    if args.GPR_interval < 1 or args.group_size < 1 or args.GPR_Epoch < 1:
+        parser.error('GP interval, history size and optimization steps must be positive')
+    if args.seed == []:
+        parser.error('Specify at least one seed after --seed')
+    requested = max(1, int(args.num_users * (args.frac_max if args.dynamic_frac else args.frac)))
+    if args.power_d and not requested <= args.d <= args.num_users:
+        parser.error('Power-d requires requested client count <= d <= num_users')
+    if args.alpha is not None and args.alpha <= 0:
+        parser.error('Dirichlet alpha must be positive')
+    if args.iid not in (0,1) or args.shards_per_client < 1:
+        parser.error('Require iid=0 or 1 and a positive shard count')
+    if args.target_accuracy is not None and not 0 < args.target_accuracy <= 1:
+        parser.error('target_accuracy must be in (0,1]')
+    if args.adaptive_local_epochs is None:
+        args.adaptive_local_epochs = args.system_aware
+    if args.max_local_epochs < args.local_ep:
+        parser.error('max_local_epochs must be at least local_ep')
+    if sum([args.gpr, args.afl, args.power_d, args.oort]) > 1:
+        parser.error('Choose exactly one selection method')
+    if (args.system_aware or args.dynamic_C or args.adaptive_local_epochs) and not args.gpr:
+        parser.error('FedDynaCor component switches require --gpr')
+    if args.straggler_penalty < 0 or args.preferred_duration <= 0 or args.min_clients < 1:
+        parser.error('Require penalty >= 0, preferred_duration > 0 and min_clients >= 1')
+    if args.dynamic_th_window < 1 or args.dynamic_th_alpha < 0:
+        parser.error('Require a positive history window and nonnegative threshold scale')
+    if not 0 < args.frac <= 1 or args.local_ep < 1 or args.local_bs < 1:
+        parser.error('Require frac in (0,1] and positive local training settings')
+    if args.min_clients > max(1, int(args.num_users * (args.frac_min if args.dynamic_frac else args.frac))):
+        parser.error('min_clients exceeds the minimum requested client count')
+    if args.gp_noise <= 0 or not 0 <= args.epsilon_greedy <= 1:
+        parser.error('Require gp_noise > 0 and epsilon_greedy in [0,1]')
+    if args.oort_pacer_step < 1 or not 0 <= args.oort_exploration_factor <= 1 or args.oort_round_penalty < 0:
+        parser.error('Invalid Oort settings')
+    if args.gpr and args.warmup < 1:
+        parser.error('GP selection requires at least one warm-up round')
     print("---------------------- Args Parameters: ------------------------")
     for key, value in vars(args).items():
         print(f"{key}: {value}")    

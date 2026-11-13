@@ -21,6 +21,8 @@ from utils import get_dataset, average_weights, exp_details,setup_seed
 from mvnt import MVN_Test
 import GPR
 from GPR import Kernel_GPR
+from experiment_io import SystemProfile, RunRecorder, synchronize_devices
+from oort_adapter import OortSelector
 
 
 
@@ -36,44 +38,21 @@ if __name__ == '__main__':
     args = args_parser()
     gargs = copy.deepcopy(args)
     exp_details(args)
-    if not args.iid:
-        base_file = './save/objects/{}_{}_{}_{}_C[{}]_iid[{}]_{}[{}]_E[{}]_B[{}]_mu[{}]_lr[{:.5f}]'.\
-                    format(args.dataset,'FedProx[%.3f]'%args.mu if args.FedProx else 'FedAvg', args.model, args.epochs,args.frac, args.iid,
-                    'sp' if args.alpha is None else 'alpha',args.shards_per_client if args.alpha is None else args.alpha,
-                    args.local_ep, args.local_bs,args.mu,args.lr)
-    else:
-        base_file = './save/objects/{}_{}_{}_{}_C[{}]_iid[{}]_E[{}]_B[{}]_mu[{}]_lr[{:.5f}]'.\
-                    format(args.dataset,'FedProx[%.3f]'%args.mu if args.FedProx else 'FedAvg', args.model, args.epochs,args.frac, args.iid,
-                    args.local_ep, args.local_bs,args.mu,args.lr)
-    if not os.path.exists(base_file):
-        os.makedirs(base_file)
-    
-    if args.afl:
-        file_name = base_file+'/afl'
-    elif args.power_d:
-        file_name = base_file+'/powerd_d[{}]'.format(args.d)
-    elif args.gpr:
-        file_name = base_file+'/gpr[int{}_gp{}_norm{}_disc{}]'.\
-            format(args.GPR_interval,args.group_size,args.poly_norm,args.discount)
-    else:
-        file_name = base_file+'/random'
-    
-    
-
-
-    
-
     device = 'cuda:'+args.gpu if args.gpu else 'cpu'
     gpr_device = 'cuda:'+args.gpr_gpu if args.gpr_gpu else 'cpu'
     if args.gpu:
         torch.cuda.set_device(device)
-    if gargs.seed is None or gargs.iid:
-        gargs.seed = [None,]
+    if gargs.seed is None:
+        gargs.seed = [0]
     for seed in gargs.seed:
         args = copy.deepcopy(gargs)# recover the args
         print("Start with Random Seed: {}".format(seed))
         # load dataset and user groups
         train_dataset, test_dataset, user_groups, user_groups_test,weights = get_dataset(args,seed)
+        profile = SystemProfile(args.num_users, seed, args.local_ep)
+        recorder = RunRecorder(args, seed, user_groups, profile)
+        file_name = str(recorder.path / 'legacy')
+        participation = np.zeros(args.num_users, dtype=int)
         # weights /=np.sum(weights)
         if seed is not None:
             setup_seed(seed)
@@ -113,14 +92,24 @@ if __name__ == '__main__':
         # Build GP
         if args.gpr:
             if args.kernel=='Poly':
-                gpr = Kernel_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device, seed=seed,
+                gpr = Kernel_GPR(args.num_users,init_noise=args.gp_noise,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device, seed=seed,
                                     dimension = args.dimension,kernel=GPR.Poly_Kernel,order = 1,Normalize = args.poly_norm)
             elif args.kernel=='SE':
-                gpr = Kernel_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed,
+                gpr = Kernel_GPR(args.num_users,init_noise=args.gp_noise,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed,
                                     dimension = args.dimension,kernel=GPR.SE_Kernel)
             else:
-                gpr = GPR.Matrix_GPR(args.num_users,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed)
+                gpr = GPR.Matrix_GPR(args.num_users,init_noise=args.gp_noise,loss_type= args.train_method,reusable_history_length=args.group_size,gamma=args.GPR_gamma,device=gpr_device,seed=seed)
             gpr.to(gpr_device)
+
+        if args.gpr:
+            gpr.client_latencies = torch.tensor(profile.durations(
+                np.arange(args.num_users), np.full(args.num_users, args.local_ep)), device=gpr.device)
+            gpr.straggler_penalty = args.straggler_penalty
+            gpr.preferred_duration = args.preferred_duration
+
+        if args.oort:
+            oort = OortSelector(args, seed, [len(user_groups[i]) for i in range(args.num_users)],
+                                profile.durations(np.arange(args.num_users), np.full(args.num_users,args.local_ep)))
 
         # copy weights
         global_weights = global_model.state_dict()
@@ -171,11 +160,16 @@ if __name__ == '__main__':
         marginal_gains_history = []  # Store marginal gains for dynamic_TH
         dynamic_TH = args.dynamic_TH  # Initial value
         for epoch in tqdm(range(args.epochs)):
+            synchronize_devices(args)
+            round_started = time.perf_counter()
+            client_execution_seconds = 0.0
+            probe_execution_seconds = 0.0
+            gp_probe_client_seconds = 0.0
             print('\n | Global Training Round : {} |\n'.format(epoch+1))
             epoch_global_losses = []
             epoch_local_losses = []
             global_model.train()
-            if args.dataset=='cifar' or epoch in args.schedule:
+            if epoch in args.schedule:
                 args.lr*=args.lr_decay
 
             
@@ -188,6 +182,7 @@ if __name__ == '__main__':
             )
             print(f"\n dynamic_frac : {args.dynamic_frac}\t Epoch {epoch}\t Number of clients : {m} ")
 
+            selection_started = time.perf_counter()
             # Update dynamic_TH based on selected mode
             if args.dynamic_C and len(marginal_gains_history) > 0:
                 window = args.dynamic_th_window
@@ -200,16 +195,19 @@ if __name__ == '__main__':
                     if len(recent_gains) > 0:
                         dynamic_TH = np.percentile(recent_gains, args.dynamic_th_percentile)
 
-            if args.gpr and epoch>args.warmup:
+            if args.gpr and epoch>=args.warmup:
                 # FedCor
-                idxs_users, client_latencies, round_time, selected_marginal_gains = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,dynamic_TH,SystemAware=args.system_aware)
+                idxs_users, client_latencies, round_time, selected_marginal_gains = gpr.Select_Clients(m,args.epsilon_greedy,weights,args.dynamic_C,dynamic_TH,SystemAware=args.system_aware,MinClients=args.min_clients)
                 print(f"Actual clients selected after dynamic threshold: {len(idxs_users)}")
                 # Update Cumulative Time
-                gpr.cumulative_time += round_time
+                # Timing is recorded after actual adaptive epochs are known.
                 print("GPR Chosen Clients:",idxs_users)
                 # Store marginal gains for dynamic_TH update
                 if selected_marginal_gains is not None:
-                    marginal_gains_history.extend(selected_marginal_gains)
+                    marginal_gains_history.append(float(np.mean(selected_marginal_gains)))
+
+            elif args.oort:
+                idxs_users = oort.select(m)
 
             elif args.afl:
                 # AFL
@@ -236,27 +234,37 @@ if __name__ == '__main__':
                 
 
 
+            synchronize_devices(args)
+            selection_seconds = time.perf_counter()-selection_started
+            idxs_users = [int(i) for i in idxs_users]
             chosen_clients.append(idxs_users)
+            client_latencies = profile.durations(idxs_users, np.full(len(idxs_users), args.local_ep))
+            participation[idxs_users] += 1
+            actual_epochs, local_steps, client_utilities = [], [], []
 
             
             
+            client_started = time.perf_counter()
             for idx in idxs_users:
                 local_model = copy.deepcopy(global_model)
                 # FIXME: arguments for the localupdate
                 # try:
-                if args.gpr and args.system_aware and epoch>args.warmup:
+                if args.gpr and args.adaptive_local_epochs and epoch>=args.warmup:
                     local_update = LocalUpdate(args=args, 
                                             dataset=train_dataset,
                                             idxs=user_groups[idx],
                                             global_round = epoch,
                                             latency=client_latencies[idxs_users.index(idx)],
-                                            preferred_T=20)
+                                            preferred_T=args.preferred_duration)
                 else:
                     local_update = LocalUpdate(args=args, 
                                             dataset=train_dataset,
                                             idxs=user_groups[idx],
                                             global_round = epoch)
                 w,test_loss,init_test_loss = local_update.update_weights(model=local_model)
+                actual_epochs.append(local_update.actual_epochs)
+                local_steps.append(local_update.local_steps)
+                client_utilities.append(local_update.statistical_utility)
                 
                 local_states[idx] = copy.deepcopy(local_model.Get_Local_State_Dict())
                 local_weights[idx]=copy.deepcopy(w)
@@ -264,6 +272,12 @@ if __name__ == '__main__':
                 epoch_local_losses.append(test_loss)
 
 
+            synchronize_devices(args)
+            client_execution_seconds = time.perf_counter() - client_started
+            if args.oort:
+                durations = profile.durations(idxs_users, actual_epochs)
+                for client, utility, duration in zip(idxs_users, client_utilities, durations):
+                    oort.update(client, utility, float(duration), epoch+1)
             # update global weights
             if args.global_average:
                 global_weights = average_weights(local_weights,omega=None)
@@ -288,10 +302,9 @@ if __name__ == '__main__':
                     args.mu=max([args.mu-init_mu*0.1,0.0])
             loss_prev = loss_avg
             train_loss.append(loss_avg)
-            # if args.dynamic_frac == 3:
-            #     train_loss_history.append(train_loss)
-            #     if len(train_loss_history) > 20:  
-            #         train_loss_history.pop(0)
+            if args.dynamic_frac == 3:
+                train_loss_history.append(float(loss_avg))
+                train_loss_history = train_loss_history[-10:]
 
             # calculate test accuracy over all users
             list_acc, list_loss = federated_test_idx(args,global_model,
@@ -302,8 +315,9 @@ if __name__ == '__main__':
 
             
             
+            diagnostic_started = time.perf_counter()
             # test prediction accuracy of GP model
-            if args.gpr and epoch>args.warmup:
+            if args.gpr and epoch>=args.warmup:
                 test_idx = np.random.choice(range(args.num_users), m, replace=False)
                 test_data = np.concatenate([np.expand_dims(list(range(args.num_users)),1),
                                             np.expand_dims(np.array(gt_global_losses[-1])-np.array(gt_global_losses[-2]),1),
@@ -321,24 +335,31 @@ if __name__ == '__main__':
 
             
 
+            synchronize_devices(args)
+            gp_diagnostic_seconds = time.perf_counter()-diagnostic_started
+            gp_training_started = time.perf_counter()
             # train GPR
             if args.gpr:
                 if epoch>=args.gpr_begin:
-                    if epoch<=args.warmup:# warm-up
+                    if epoch<args.warmup:# warm-up
                         gpr.Update_Training_Data([np.arange(args.num_users),],[np.array(gt_global_losses[-1])-np.array(gt_global_losses[-2]),],epoch=epoch)
                         if not args.update_mean:
                             print("Training GPR")
                             gpr.Train(lr = 1e-2,llr = 0.01,max_epoches=150,schedule_lr=False,update_mean=args.update_mean,verbose=args.verbose)
-                        elif epoch == args.warmup:
+                        elif epoch == args.warmup-1:
                             print("Training GPR")
                             gpr.Train(lr = 1e-2,llr = 0.01,max_epoches=1000,schedule_lr=False,update_mean=args.update_mean,verbose=args.verbose)
 
-                    elif epoch>args.warmup and epoch%args.GPR_interval==0:# normal and optimization round
+                    elif epoch>=args.warmup and epoch%args.GPR_interval==0:# normal and optimization round
                         gpr.Reset_Discount()
                         print("Training with Random Selection For GPR Training:")
                         random_idxs_users = np.random.choice(range(args.num_users), m, replace=False)
-                        gpr_acc,gpr_loss = train_federated_learning(args,epoch,
-                                            copy.deepcopy(global_model),random_idxs_users,train_dataset,user_groups)
+                        probe_started = time.perf_counter()
+                        gpr_acc,gpr_loss,probe_timing = train_federated_learning(args,epoch,
+                                            copy.deepcopy(global_model),random_idxs_users,train_dataset,user_groups, return_timing=True)
+                        synchronize_devices(args)
+                        probe_execution_seconds = probe_timing['client_seconds']
+                        gp_probe_client_seconds = profile.round_seconds(random_idxs_users, np.full(m, args.local_ep))
                         gpr.Update_Training_Data([np.arange(args.num_users),],[np.array(gpr_loss)-np.array(gt_global_losses[-1]),],epoch=epoch)
                         print("Training GPR")
                         gpr.Train(lr = 1e-2,llr = 0.01,max_epoches=args.GPR_Epoch,schedule_lr=False,update_mean=args.update_mean,verbose=args.verbose)
@@ -347,7 +368,7 @@ if __name__ == '__main__':
                         gpr.Update_Discount(idxs_users,args.discount)
                     
                 
-                if args.mvnt and (epoch==args.warmup or (epoch%args.mvnt_interval==0 and epoch>args.warmup)):
+                if args.mvnt and (epoch==args.warmup-1 or (epoch%args.mvnt_interval==0 and epoch>=args.warmup)):
                     mvn_file = file_name+'/MVN/{}'.format(seed)
                     if not os.path.exists(mvn_file):
                         os.makedirs(mvn_file)
@@ -359,9 +380,24 @@ if __name__ == '__main__':
 
                     
 
+            synchronize_devices(args)
+            gp_training_server_seconds = time.perf_counter()-gp_training_started-probe_execution_seconds
             # test inference on the global test dataset
             test_acc, test_loss = test_inference(args, global_model, test_dataset)
             test_accuracy.append(test_acc)
+            synchronize_devices(args)
+            measured_round_seconds = time.perf_counter() - round_started
+            simulated_client_seconds = profile.round_seconds(idxs_users, actual_epochs)
+            measured_server_seconds = max(0.0, measured_round_seconds-client_execution_seconds-probe_execution_seconds)
+            recorder.round({'round':epoch+1,'phase':'warmup' if args.gpr and epoch<args.warmup else 'normal',
+                'test_accuracy':test_acc,'test_loss':test_loss,'clients':idxs_users,
+                'actual_epochs':actual_epochs,'local_steps':local_steps,'client_utilities':client_utilities,
+                'client_validation_accuracy':list_acc,'client_validation_loss':list_loss,
+                'participation_counts':participation.tolist(),'threshold':float(dynamic_TH) if args.dynamic_C else None,
+                'simulated_client_seconds':simulated_client_seconds,'gp_probe_client_seconds':gp_probe_client_seconds,
+                'measured_server_seconds':measured_server_seconds,'measured_round_seconds':measured_round_seconds,
+                'selection_seconds':selection_seconds,'gp_training_server_seconds':max(0.,gp_training_server_seconds),
+                'gp_diagnostic_seconds':gp_diagnostic_seconds})
             if args.target_accuracy is not None:
                 if test_acc>=args.target_accuracy:
                     break
@@ -372,17 +408,21 @@ if __name__ == '__main__':
                 print('Training Loss : {}'.format(np.sum(np.array(list_loss)*weights)))
                 print("Test Accuracy: {:.2f}%\n".format(100*test_acc))
                 # TODO: add print statement below to include wall clock time reporting per round
-                print(f"Round Simulated Wall-Clock Time: {gpr.cumulative_time:.2f} seconds")
+                print(f"Cumulative hybrid training time: {recorder.elapsed:.2f} seconds")
         
         
         print(' \n Results after {} global rounds of training:'.format(epoch+1))
         print("|---- Final Test Accuracy: {:.2f}%".format(100*test_accuracy[-1]))
         print("|---- Max Test Accuracy: {:.2f}%".format(100*max(test_accuracy)))
         if args.gpr:
-            print("|---- Mean GP Prediction Loss: {:.4f}".format(np.mean(predict_losses)))
+            if predict_losses:
+                print("|---- Mean GP Prediction Loss: {:.4f}".format(np.mean(predict_losses)))
+            else:
+                print("|---- Mean GP Prediction Loss: unavailable (no successful diagnostics)")
 
         print('\n Total Run Time: {0:0.4f}'.format(time.time()-start_time))
 
+        recorder.finish(epoch+1, test_accuracy[-1])
         # save the training records:
         with open(file_name+'_{}.pkl'.format(seed), 'wb') as f:
             pickle.dump([train_loss, train_accuracy,chosen_clients,

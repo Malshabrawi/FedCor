@@ -1,0 +1,98 @@
+{
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "common": [
+    "--epochs=500",
+    "--num_users=100",
+    "--local_ep=3",
+    "--local_bs=64",
+    "--lr=0.005",
+    "--schedule",
+    "150",
+    "300",
+    "--lr_decay=0.5",
+    "--warmup=15",
+    "--group_size=100",
+    "--GPR_interval=10",
+    "--GPR_gamma=0.95",
+    "--discount=0.95",
+    "--update_mean",
+    "--iid=0",
+    "--dynamic_frac=0"
+  ],
+  "datasets": {
+    "fmnist": [
+      "--dataset=fmnist",
+      "--model=mlp",
+      "--mlp_layers",
+      "64",
+      "30"
+    ],
+    "cifar10": [
+      "--dataset=cifar",
+      "--model=cnn",
+      "--kernel_sizes",
+      "3",
+      "3",
+      "3",
+      "--num_filters",
+      "32",
+      "64",
+      "64",
+      "--mlp_layers",
+      "64"
+    ]
+  },
+  "partitions": {
+    "dir": [
+      "--alpha=0.2",
+      "--frac=0.05"
+    ],
+    "spc1": [
+      "--shards_per_client=1",
+      "--frac=0.1"
+    ],
+    "spc2": [
+      "--shards_per_client=2",
+      "--frac=0.05"
+    ]
+  },
+  "variants": {
+    "baseline": [
+      "--gpr",
+      "--system_aware=false"
+    ],
+    "dynamic": [
+      "--gpr",
+      "--dynamic_C",
+      "--system_aware=false"
+    ],
+    "system": [
+      "--gpr",
+      "--system_aware=true"
+    ],
+    "full": [
+      "--gpr",
+      "--dynamic_C",
+      "--system_aware=true"
+    ],
+    "oort": [
+      "--oort"
+    ],
+    "afl": [
+      "--afl"
+    ],
+    "random": [],
+    "full_fixed_epochs": [
+      "--gpr",
+      "--dynamic_C",
+      "--system_aware=true",
+      "--adaptive_local_epochs=false"
+    ]
+  }
+}

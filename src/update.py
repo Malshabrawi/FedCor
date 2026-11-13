@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader, Dataset
 import torch.nn.functional as F
 import copy
 import math
+import time
+from experiment_io import synchronize_devices
 
 from utils import average_weights
 
@@ -89,7 +91,7 @@ class LocalUpdate(object):
             
         # FIXME: Adaptive Local Training
         # V is the confidence factor (recommended 0.7 to 0.9)
-        if getattr(self.args, 'system_aware', False) and self.latency > 0:
+        if getattr(self.args, 'adaptive_local_epochs', False) and self.latency > 0:
             V = 0.8
             idle_time = max(self.preferred_T - self.latency, 0)
             adaptation_factor = (V * (idle_time / self.latency)) + 1
@@ -99,9 +101,13 @@ class LocalUpdate(object):
             adaptive_ep = self.args.local_ep
 
         # Ensure we always perform at least the base number of epochs
-        adaptive_ep = max(self.args.local_ep, adaptive_ep)
+        adaptive_ep = min(self.args.max_local_epochs, max(self.args.local_ep, adaptive_ep))
         
 
+        self.actual_epochs = adaptive_ep
+        self.local_steps = 0
+        self.processed_samples = 0
+        self.loss_square_sum = 0.0
         for iter in range(adaptive_ep):
             for batch_idx, (datas, labels) in enumerate(self.trainloader):
                 
@@ -109,6 +115,10 @@ class LocalUpdate(object):
 
                 self.net.zero_grad()
                 output = self.net(datas)
+                sample_losses = F.cross_entropy(output.detach(), labels, reduction='none')
+                self.loss_square_sum += sample_losses.square().sum().item()
+                self.processed_samples += len(labels)
+                self.local_steps += 1
                 total_loss,celoss = self.criterion(output, labels)
                 if self.args.FedProx:
                     PLoss = self.Proxy_Loss()
@@ -126,6 +136,7 @@ class LocalUpdate(object):
         
         test_accuracy,test_loss = self.inference(self.net)
 
+        self.statistical_utility = math.sqrt(self.processed_samples * self.loss_square_sum) / self.actual_epochs
         return self.net.state_dict(), test_loss,init_test_loss
 
     def inference(self, model):
@@ -162,13 +173,15 @@ class LocalUpdate(object):
         return loss
 
 
-def train_federated_learning(args,epoch,global_model,idxs_users,train_dataset,user_groups,verbose = False):
+def train_federated_learning(args,epoch,global_model,idxs_users,train_dataset,user_groups,verbose = False, return_timing=False):
     device = 'cuda:'+args.gpu if args.gpu else 'cpu'
     local_weights = []
     for _ in range(args.num_users):
         local_weights.append(copy.deepcopy(global_model.state_dict()))
     local_weights = np.array(local_weights)
     global_model.train()
+    synchronize_devices(args)
+    client_started=time.perf_counter()
     for idx in idxs_users:
         local_model = copy.deepcopy(global_model)
         local_update = LocalUpdate(args=args, dataset=train_dataset,
@@ -177,6 +190,8 @@ def train_federated_learning(args,epoch,global_model,idxs_users,train_dataset,us
         w,_,_ = local_update.update_weights(model=local_model)
         local_weights[idx]=copy.deepcopy(w)
 
+    synchronize_devices(args)
+    client_seconds=time.perf_counter()-client_started
     # update global weights
     if args.global_average:
         global_weights = average_weights(local_weights)
@@ -195,6 +210,8 @@ def train_federated_learning(args,epoch,global_model,idxs_users,train_dataset,us
         acc, loss = local_update.inference(model=local_model)
         list_acc.append(acc)
         list_loss.append(loss)
+    if return_timing:
+        return sum(list_acc)/len(list_acc),list_loss,{"client_seconds":client_seconds}
     return sum(list_acc)/len(list_acc),list_loss
 
 def federated_train_all(args,global_model,train_dataset,user_groups):
