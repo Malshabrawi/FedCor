@@ -97,9 +97,8 @@ The straggler penalty is now configurable with `--straggler_penalty` (default 1.
 Zero is available as an explicit ablation. Adaptive local epochs can be independently
 disabled with `--adaptive_local_epochs=false` and are capped by `--max_local_epochs`.
 
-## Reviewer revision workflow
+## Experiment configurations
 
-See [experiments/README.md](experiments/README.md) for matched dataset, baseline,
-sensitivity and epoch-control runs. [REVIEW_RESPONSES.md](REVIEW_RESPONSES.md) is
-the single reviewer response and change record. Full reruns and manuscript updates
-remain pending; smoke tests do not establish superiority or convergence.
+Matched dataset, baseline, sensitivity and epoch-control configurations are in
+`experiments/`. Full reruns and manuscript updates remain pending; smoke tests
+do not establish superiority or convergence.

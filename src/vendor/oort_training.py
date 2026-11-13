@@ -1,5 +1,5 @@
 # Apache-2.0; SymbioticLab/Oort, commit 05a3aa1677a10f8e621055b1626ef82e73d09759.
-# Extracted training selector; boundary and probability guards. See OORT_PROVENANCE.md.
+# Extracted training selector with boundary and probability guards; license in OORT_LICENSE.
 import math, numpy
 from random import Random
 from collections import OrderedDict
