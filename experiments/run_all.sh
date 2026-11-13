@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 # Run from the repository root, even when launched from another directory.
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
-# 282 training runs, executed sequentially. Stops on the first failure.
+# 282 training runs, executed sequentially. Continues to later commands after failures.
 # CUDA is selected automatically when available; otherwise CPU is used.
 # Use an active Python environment with the project dependencies installed.
 
