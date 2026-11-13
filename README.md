@@ -99,7 +99,7 @@ Uses the CIFAR-10 CNN from the dataset/model table and matched 500-round setting
 python3 src/federated_main.py --gpu=0 --dataset=cifar --model=cnn --kernel_sizes 3 3 3 --num_filters 32 64 64 --mlp_layers 64 --epochs=500 --num_users=100 --frac=0.05 --alpha=0.2 --local_ep=3 --local_bs=64 --lr=0.005 --schedule 150 300 --lr_decay=0.5 --optimizer=sgd --iid=0 --seed 1 2 3 4 5 --oort --run_root=runs/oort_cifar10_dir
 ```
 
-Remove `--gpu=0` for CPU execution. For these direct Oort commands, replace
+Use `--gpu=cpu` to force CPU execution. For these direct Oort commands, replace
 `--alpha=0.2` with `--shards_per_client=1 --frac=0.1` for SPC1, or
 `--shards_per_client=2 --frac=0.05` for SPC2. Do not combine `--oort` with `--gpr`.
 
@@ -146,7 +146,12 @@ python3 experiments/run.py --dataset fmnist --variants baseline dynamic system f
 python3 experiments/run.py --dataset cifar10 --variants baseline dynamic system full oort afl random full_fixed_epochs --run_root=runs/main_cifar10 --execute
 ```
 
-Append `--gpu=0 --gpr_gpu=0` to either main runner command for CUDA. To restrict
+Training automatically uses visible CUDA device 0 when CUDA is available,
+otherwise CPU. GP work follows the training device by default. Override with
+`--gpu=cpu` (force CPU), `--gpu=1` (another visible CUDA device), or
+`--gpr_gpu=cpu` / `--gpr_gpu=1` (separate GP placement). An explicitly requested
+unavailable GPU fails with a clear error. Automatic detection currently supports
+CUDA GPUs; other accelerator backends use CPU. To restrict
 a run, add e.g. `--partitions spc1 --seeds 1`; keep such checks in a separate
 output root. Do not repeat completed methods into the same root: analysis rejects
 duplicate method/seed runs.
@@ -159,8 +164,8 @@ python3 experiments/sensitivity.py --dataset fmnist --execute
 python3 experiments/sensitivity.py --dataset cifar10 --execute
 ```
 
-The sensitivity runner currently runs on CPU and accepts dataset, partitions,
-seeds and execute options only. Each setting has a separate root under
+The sensitivity runner uses the same automatic CUDA/CPU selection and accepts
+`--gpu` and `--gpr_gpu` overrides, as well as dataset, partitions, seeds and execute options. Each setting has a separate root under
 `runs/sensitivity/<runner-dataset>/<parameter-setting>/`.
 
 Each training run has a uniquely named subdirectory containing:
