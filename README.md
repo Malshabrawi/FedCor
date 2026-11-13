@@ -110,3 +110,44 @@ disabled with `--adaptive_local_epochs=false` and are capped by `--max_local_epo
 Matched dataset, baseline, sensitivity and epoch-control configurations are in
 `experiments/`. Full reruns and manuscript updates remain pending; smoke tests
 do not establish superiority or convergence.
+
+
+## Reduced sensitivity experiments
+
+The main experiments still cover both datasets and all comparison methods.
+Sensitivity defaults to **Full FedDynaCor only**, excluding the default setting
+already covered by the main experiments. Baseline does not use these parameters
+and must not be retrained for every setting.
+
+```shell
+python3 experiments/sensitivity.py --dataset fmnist --partitions dir spc1 spc2 --seeds 1 2 --execute
+```
+
+This launches seven nondefault settings x three partitions x two seeds (1,2) =
+**42 additional 500-round runs**. It changes one factor at a time: W=5/20,
+rho=0.1/0.4, penalty=0/0.5/2, around W=10/rho=0.2/penalty=1. Full always retains
+adaptive local epochs, including when penalty=0. CUDA/CPU selection remains
+automatic. Omit `--execute` to inspect commands. To extend sensitivity to CIFAR-10,
+use `--dataset cifar10` (another 42 runs). `--include-reference` optionally trains
+the default Full setting too if main results are unavailable; it does not train
+baseline. The updated `experiments/run_all.sh` runs 240 main comparisons plus
+42 Fashion-MNIST sensitivity runs = **282 runs**; CIFAR sensitivity is optional.
+
+The eight settings cover 48 setting/partition/seed results; six default Full
+results are reused from the main suite. Main experiments retain five seeds.
+Two seeds provide limited precision; treat sensitivity intervals cautiously.
+
+Results are saved under `runs/sensitivity/fmnist/<parameter-setting>/`. Reuse
+matched baseline results directly from `runs/main_fmnist`, for example:
+
+```shell
+python3 analysis/summarize.py runs/sensitivity/fmnist/dynamic_th_window-5_dynamic_th_alpha-0.2_straggler_penalty-1.0 --baseline-root runs/main_fmnist --seeds 1 2 --dataset fmnist --partition spc1 --target 0.6 --output runs/analysis/sensitivity_W5_spc1.json
+```
+
+Repeat per setting and partition with preselected accuracy targets. Default Full
+results remain in the main suite. The analysis checks exact seeds, partition and
+latency-profile hashes, code, hardware selection and shared training settings;
+incompatible main/sensitivity runs cannot be pooled. No logs are copied and no
+baseline training is launched by the analysis. Do not rerun already completed
+settings into the same root. Parameter sweeps and analysis do not themselves
+produce paper figures.

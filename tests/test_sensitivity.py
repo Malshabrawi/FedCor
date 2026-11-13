@@ -16,5 +16,25 @@ class SensitivityTests(unittest.TestCase):
         result=subprocess.run([sys.executable,str(ROOT/'experiments/sensitivity.py'),'--dataset','fmnist',
             '--partitions','spc1','--seeds','1','--gpu=cpu','--gpr_gpu=1'],capture_output=True,text=True,check=True)
         commands=[json.loads(line) for line in result.stdout.splitlines()]
-        self.assertEqual(len(commands),16)
+        self.assertEqual(len(commands),7)
         self.assertTrue(all('--gpu=cpu' in cmd and '--gpr_gpu=1' in cmd for cmd in commands))
+
+    def test_reduced_sweep_has_42_unique_full_runs(self):
+        import json
+        config=json.loads((ROOT/'experiments/core.json').read_text())
+        commands=list(s.sweep_commands(config,'fmnist',['dir','spc1','spc2'],[1,2],Path('runs/sensitivity')))
+        self.assertEqual(len(commands),42)
+        self.assertEqual(len(set(tuple(c) for c in commands)),42)
+        for cmd in commands:
+            self.assertIn('--gpr',cmd);self.assertIn('--dynamic_C',cmd);self.assertIn('--system_aware=true',cmd)
+            self.assertIn('--epochs=500',cmd)
+        self.assertEqual(len(list(s.settings(False))),7)
+        self.assertNotIn(s.REFERENCE,list(s.settings(False)))
+        self.assertEqual(len(list(s.sweep_commands(config,'fmnist',['dir','spc1','spc2'],[1,2],Path('runs/sensitivity'),True))),48)
+
+    def test_default_cli_uses_two_seeds_and_all_partitions(self):
+        import json,subprocess
+        result=subprocess.run([sys.executable,str(ROOT/'experiments/sensitivity.py'),'--dataset','fmnist'],capture_output=True,text=True,check=True)
+        commands=[json.loads(line) for line in result.stdout.splitlines()]
+        self.assertEqual(len(commands),42)
+        self.assertEqual({cmd[cmd.index('--seed')+1] for cmd in commands},{'1','2'})

@@ -70,3 +70,23 @@ class StatisticsTests(unittest.TestCase):
             for file in Path(tmp).glob('*/config.json'):
                 c=json.loads(file.read_text());c['iid']=1;file.write_text(json.dumps(c))
             with self.assertRaisesRegex(ValueError,'No baseline'):a.summarize(tmp,.6,'fmnist','spc1')
+
+    def test_reuse_main_baseline_without_retraining_or_copying(self):
+        import tempfile,shutil,json
+        with tempfile.TemporaryDirectory() as tmp:
+            main=Path(tmp)/'main';main.mkdir();candidate=Path(tmp)/'candidate';candidate.mkdir()
+            self.fixture(main)
+            for folder in main.glob('full_*'):
+                shutil.copytree(folder,candidate/folder.name)
+                file=candidate/folder.name/'config.json';c=json.loads(file.read_text());c['dynamic_th_alpha']=.4;file.write_text(json.dumps(c))
+            with self.assertRaisesRegex(ValueError,'No baseline'):a.summarize(candidate,.6,'fmnist','spc1')
+            shutil.copytree(main/'baseline_2',main/'baseline_3')
+            file=main/'baseline_3/config.json';c=json.loads(file.read_text());c['seed']=3;file.write_text(json.dumps(c))
+            with self.assertRaisesRegex(ValueError,'Unmatched'):a.summarize(candidate,.6,'fmnist','spc1',baseline_root=main)
+            result=a.summarize(candidate,.6,'fmnist','spc1',baseline_root=main,seeds=[1,2])
+            self.assertEqual(set(result['methods']),{'baseline','full'})
+            self.assertEqual(result['paired_comparisons']['full']['all_matched_seeds'],2)
+            self.assertEqual(result['baseline_root'],str(main.resolve()))
+            with self.assertRaisesRegex(ValueError,'Requested seeds missing'):a.summarize(candidate,.6,'fmnist','spc1',baseline_root=main,seeds=[1,2,3])
+            file=main/'baseline_2/config.json';c=json.loads(file.read_text());c['partition_sha256']='wrong';file.write_text(json.dumps(c))
+            with self.assertRaisesRegex(ValueError,'Unmatched'):a.summarize(candidate,.6,'fmnist','spc1',baseline_root=main,seeds=[1,2])

@@ -4,7 +4,7 @@ set -euo pipefail
 # Run from the repository root, even when launched from another directory.
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
-# 720 training runs, executed sequentially. Stops on the first failure.
+# 282 training runs, executed sequentially. Stops on the first failure.
 # CUDA is selected automatically when available; otherwise CPU is used.
 # Use an active Python environment with the project dependencies installed.
 
@@ -32,6 +32,8 @@ python3 experiments/run.py --dataset cifar10 --variants afl --run_root=runs/main
 python3 experiments/run.py --dataset cifar10 --variants random --run_root=runs/main_cifar10 --execute
 python3 experiments/run.py --dataset cifar10 --variants full_fixed_epochs --run_root=runs/main_cifar10 --execute
 
-# Sensitivity — window size, threshold scaling and system penalty
-python3 experiments/sensitivity.py --dataset fmnist --execute
-python3 experiments/sensitivity.py --dataset cifar10 --execute
+# Reduced sensitivity — Full only, seven nondefault settings, all three partitions.
+# Reuse baseline and default Full from main_fmnist above: 42 additional runs (seeds 1 and 2).
+python3 experiments/sensitivity.py --dataset fmnist --partitions dir spc1 spc2 --seeds 1 2 --execute
+# Optional CIFAR-10 extension (42 additional runs):
+# python3 experiments/sensitivity.py --dataset cifar10 --partitions dir spc1 spc2 --seeds 1 2 --execute

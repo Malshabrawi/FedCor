@@ -69,14 +69,23 @@ def validate_records(config, records, summary):
         raise ValueError('Training ended before the configured horizon without reaching its stopping target')
 
 
-def summarize(root,target,dataset,partition):
+def summarize(root,target,dataset,partition,baseline_root=None,seeds=None):
+    if seeds is not None and (not seeds or len(set(seeds))!=len(seeds)):
+        raise ValueError('Requested seeds must be nonempty and unique')
     groups={};configurations={};method_configurations={}
-    for folder in sorted(Path(root).iterdir()):
+    folders=[(folder,False) for folder in sorted(Path(root).iterdir())]
+    if baseline_root is not None:
+        if Path(root).resolve()==Path(baseline_root).resolve():
+            raise ValueError('Baseline root must differ from candidate root')
+        folders += [(folder,True) for folder in sorted(Path(baseline_root).iterdir())]
+    for folder,reused_baseline in folders:
         if not (folder/'config.json').is_file():continue
         c=json.loads((folder/'config.json').read_text())
+        if reused_baseline and variant(c)!='baseline':continue
         if c.get('iid',0):continue
         setting='dir' if c['alpha'] is not None else 'spc'+str(c['shards_per_client'])
         if c['dataset']!=dataset or setting!=partition:continue
+        if seeds is not None and c['seed'] not in seeds:continue
         if not (folder/'summary.json').is_file():raise ValueError('Incomplete run: '+str(folder))
         summary=json.loads((folder/'summary.json').read_text())
         if summary['status']!='complete':raise ValueError('Failed run: '+str(folder))
@@ -106,9 +115,15 @@ def summarize(root,target,dataset,partition):
         groups[name][key]={'seed':c['seed'],'time_to_target':hit['cumulative_total_seconds'] if hit else None,
                            'final_accuracy':records[-1]['test_accuracy'],'fairness':fairness(records[-1])}
     if 'baseline' not in groups:raise ValueError('No baseline runs found')
+    if seeds is not None:
+        for name,items in groups.items():
+            if {key[0] for key in items}!=set(seeds):
+                raise ValueError('Requested seeds missing for '+name)
     output={'dataset':dataset,'partition':partition,'target_accuracy':target,
         'timing':'hybrid estimate, including warmup','fairness_population':'client-held-out validation subsets of training partition',
-        'methods':{},'paired_comparisons':{},'configurations':method_configurations}
+        'methods':{},'paired_comparisons':{},'configurations':method_configurations,
+        'baseline_root':str(Path(baseline_root).resolve()) if baseline_root is not None else None,
+        'requested_seeds':seeds}
     for name,items in groups.items():
         hits=[x['time_to_target'] for x in items.values() if x['time_to_target'] is not None]
         output['methods'][name]={'runs':list(items.values()),'successes':len(hits),'total':len(items),
@@ -131,7 +146,9 @@ def summarize(root,target,dataset,partition):
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('root',type=Path);p.add_argument('--target',type=float,required=True)
     p.add_argument('--dataset',required=True);p.add_argument('--partition',choices=['dir','spc1','spc2'],required=True)
+    p.add_argument('--seeds',type=int,nargs='+',help='Select matched seeds from both candidate and reference suites')
+    p.add_argument('--baseline-root',type=Path,help='Reuse only baseline runs from a matched main suite')
     p.add_argument('--output',type=Path,required=True);a=p.parse_args()
     if not 0<a.target<=1:p.error('target must be a fraction in (0,1]')
-    result=summarize(a.root,a.target,a.dataset,a.partition)
+    result=summarize(a.root,a.target,a.dataset,a.partition,a.baseline_root,a.seeds)
     a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(json.dumps(result,indent=2,allow_nan=False)+'\n')
