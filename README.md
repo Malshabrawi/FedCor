@@ -151,3 +151,32 @@ incompatible main/sensitivity runs cannot be pooled. No logs are copied and no
 baseline training is launched by the analysis. Do not rerun already completed
 settings into the same root. Parameter sweeps and analysis do not themselves
 produce paper figures.
+
+
+## Weights & Biases
+
+Install and authenticate in the same environment used for training:
+
+```shell
+python3 -m pip install wandb
+wandb login
+bash run.sh
+```
+
+Alternatively set `WANDB_API_KEY` in the training terminal or the platform's
+secret/environment settings. Never put the key in run.sh or commit it.
+`run.sh` enables project `FedDynaCor` and launches the existing full experiment
+shell script. Set `WANDB_PROJECT` and optionally `WANDB_ENTITY` to your project
+and team before launching. Each experiment/seed gets a distinct W&B run with
+configuration, per-round accuracy/loss, client counts, epochs/steps, timing and
+client fairness summaries. Exact client arrays remain in local JSON records.
+
+For direct runner use, export `WANDB_PROJECT=FedDynaCor` first; this also enables
+logging for sensitivity. `WANDB_MODE=offline bash run.sh` stores offline W&B
+runs inside the local experiment directories for later `wandb sync <run-folder>`.
+`WANDB_MODE=disabled bash run.sh` disables W&B. The original
+`bash experiments/run_all.sh` remains usable without W&B when WANDB_PROJECT is
+unset. Local JSON results remain available; no dataset or checkpoint artifacts
+are uploaded by this integration. SDK initialization/upload failures are surfaced
+rather than silently claiming successful tracking. Hardware testing and small
+checks should use separate output directories from paper experiments.

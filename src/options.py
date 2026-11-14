@@ -3,6 +3,7 @@
 # Python version: 3.6
 
 import argparse
+import os
 import numpy as np
 
 
@@ -34,6 +35,11 @@ def resolve_gpu(value, parser):
 
 def args_parser():
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--wandb',action='store_true',default=bool(os.environ.get('WANDB_PROJECT')),
+                        help='Enable W&B; also enabled by WANDB_PROJECT')
+    parser.add_argument('--wandb_project',default=os.environ.get('WANDB_PROJECT','FedDynaCor'))
+    parser.add_argument('--wandb_mode',choices=['online','offline','disabled'],default=os.environ.get('WANDB_MODE','online'))
 
     # federated arguments (Notation for the arguments followed from paper)
     parser.add_argument('--epochs', type=int, default=10,

@@ -6,6 +6,7 @@ import subprocess
 import time
 import uuid
 import numpy as np
+from wandb_tracking import WandbTracker
 
 class SystemProfile:
     def __init__(self, count, seed, base_epochs):
@@ -52,6 +53,7 @@ class RunRecorder:
             partition_sha256=signature, torch_version=torch.__version__, python_version=platform.python_version(),
             torch_threads=torch.get_num_threads(), package_versions={name:version(name) for name in ['torch','torchvision','numpy','cvxopt','tqdm']}, timing_definition='hybrid_simulated_clients_plus_measured_server')
         self.write('config.json',config);self.write('partition.json',partition);self.write('system_profile.json',profile.as_dict())
+        self.tracker=WandbTracker(args,config,self.path)
         self.elapsed = 0.0;self.wall_start=time.perf_counter()
     def write(self,name,data):
         (self.path/name).write_text(json.dumps(data,indent=2,allow_nan=False)+'\n')
@@ -59,9 +61,12 @@ class RunRecorder:
         self.elapsed += data['simulated_client_seconds']+data['gp_probe_client_seconds']+data['measured_server_seconds']
         data['cumulative_total_seconds']=self.elapsed
         with (self.path/'rounds.jsonl').open('a') as f:f.write(json.dumps(data,allow_nan=False)+'\n')
+        self.tracker.log(data)
     def finish(self,rounds,accuracy):
-        self.write('summary.json',{'status':'complete','rounds':rounds,'final_test_accuracy':accuracy,
-                   'total_seconds':self.elapsed,'measured_execution_seconds':time.perf_counter()-self.wall_start})
+        summary={'status':'complete','rounds':rounds,'final_test_accuracy':accuracy,
+                   'total_seconds':self.elapsed,'measured_execution_seconds':time.perf_counter()-self.wall_start}
+        self.tracker.finish(summary)
+        self.write('summary.json',summary)
 
 
 def synchronize_devices(args):
